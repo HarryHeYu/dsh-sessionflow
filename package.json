@@ -1,0 +1,64 @@
+{
+  "name": "sessionflow-dsh",
+  "version": "0.1.0",
+  "description": "Cross-agent session continuity for DeepSeek Harness — continue work from Codex, Claude Code, Grok, ZCode and other coding agents directly inside DSH.",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "author": "HarryHeYu",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HarryHeYu/sessionflow-dsh.git"
+  },
+  "homepage": "https://github.com/HarryHeYu/sessionflow-dsh",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "dsh",
+    "sessionflow",
+    "ai-agent",
+    "coding-agent",
+    "claude-code",
+    "codex",
+    "agent-handoff",
+    "session-management"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "tsc -p tsconfig.json",
+    "test": "npm run build && node --experimental-strip-types --test \"tests/**/*.test.ts\""
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/dsh-tools": "^0.1.5-rc.3"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/dsh-tools": "^0.1.5-rc.3",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=22.19"
+  }
+}
