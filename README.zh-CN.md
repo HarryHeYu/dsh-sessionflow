@@ -146,7 +146,8 @@ npm test          # 先构建，再跑 node --test（bridge 机制 + 真实核�
 ```
 
 `tests/bridge.test.ts` 用 stub 可执行文件覆盖解析、超时、坏 JSON、非零退出和兼容性闸门，
-再用**真实核心**在临时索引上跑一遍完整的 JSON 往返。
+再用**真实核心**在临时索引上跑一遍完整的 JSON 往返。这些临时索引建在系统临时目录下，
+**测试退出时会被删除**；用 `SESSIONFLOW_TEST_TMPDIR` 可以改到别处。
 
 ## 许可
 

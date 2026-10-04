@@ -11,16 +11,37 @@
  *    index (a gibberish term, a gibberish repo).
  */
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
 const exec = promisify(execFile);
+
+// Temporary indexes are created under the OS temp dir and removed on exit:
+// a test suite must not leave scratch behind, least of all on a drive it does
+// not own.  Set SESSIONFLOW_TEST_TMPDIR to redirect them.
+const createdTmpDirs: string[] = [];
+
+function makeTmpDir(prefix: string): string {
+  const dir = mkdtempSync(join(process.env['SESSIONFLOW_TEST_TMPDIR'] ?? tmpdir(), prefix));
+  createdTmpDirs.push(dir);
+  return dir;
+}
+
+after(() => {
+  for (const dir of createdTmpDirs) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // best effort: a leftover temp dir must never fail the suite
+    }
+  }
+});
 
 import {
   VoyagerError,
@@ -157,7 +178,7 @@ print("seeded")
 const python = await findPython();
 let seeded: string | null = null;
 if (python) {
-  const db = join(mkdtempSync(join(tmpdir(), 'sfdsh-')), 'index.db');
+  const db = join(makeTmpDir('dsh-sessionflow-'), 'index.db');
   try {
     await exec(python, ['-c', SEED, db]);
     seeded = db;
@@ -239,7 +260,7 @@ test('continue_context by session ref returns the compiled bundle', integration,
 
 test('continue_context with no sessions is a clear error, not a crash', async () => {
   resetBridgeCache();
-  const empty = join(mkdtempSync(join(tmpdir(), 'sfdsh-empty-')), 'index.db');
+  const empty = join(makeTmpDir('dsh-sessionflow-empty-'), 'index.db');
   const r = await callOp<{ error?: string }>(
     'continue_context', { db: empty });
   assert.match(r.error ?? '', /no sessions/);

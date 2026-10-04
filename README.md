@@ -157,7 +157,9 @@ npm test          # build, then node --test (bridge mechanics + live core)
 
 `tests/bridge.test.ts` covers resolution, timeouts, malformed JSON, non-zero
 exits and the compatibility gate against stub executables, then runs the real
-JSON round-trip against the installed core on a seeded temporary index.
+JSON round-trip against the installed core on a seeded temporary index. Those
+indexes are created under the OS temp directory and **removed when the suite
+exits**; set `SESSIONFLOW_TEST_TMPDIR` to put them somewhere else.
 
 ## License
 
