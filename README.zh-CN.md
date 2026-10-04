@@ -115,15 +115,21 @@ DSH 处于 Developer Preview，接口会变。插件声明它需要的 bridge `s
 
 按**实际达到的等级**如实标注，不向上冒充。
 
-| 结论 | 等级 | 证据 |
+| 能力 | 状态 | 证据 |
 |---|---|---|
-| bridge 机制：解析、超时、坏 JSON、非零退出、schema 闸门 | **UNIT TESTED** | `tests/bridge.test.ts`，stub 可执行文件 |
-| 与真实核心的 JSON 往返 | **INTEGRATION TESTED** | `tests/bridge.test.ts`，真实 `voyager` + 临时索引 |
-| 六个 tool 用真实 `defineTool` 注册 | **UNIT TESTED** | `tests/plugin.test.ts` |
-| `dsh.bundle` manifest 被识别、bundle 进入 profile 层栈 | **LIVE VERIFIED** | `dsh plugin --profile sessionflow-test install` 把 `dsh-sessionflow` 写进了 `dsh.profile.bundles` |
-| 插件行出现在组合后的 profile 树里 | **LIVE VERIFIED** | `dsh --profile sessionflow-test --dump-config` 显示 `- id: dsh-sessionflow` |
-| Agent 在真实 DSH 回合中调用这些 tool | **NOT VERIFIED** | 需要一次 LLM 回合，此处未跑 |
-| `dsh plugin add` 真正落地包链接 | **NOT VERIFIED** | 测试环境里的 pnpm 11.22.0 没有创建链接；已知可用的第三方 bundle 表现相同，属环境问题而非本包问题 |
+| bridge 机制：解析、超时、坏 JSON、非零退出、schema 闸门 | **PASS（unit）** | `tests/bridge.test.ts`，stub 可执行文件 |
+| 与真实核心的 JSON 往返 | **PASS（integration）** | `tests/bridge.test.ts`，真实 `voyager` + 临时索引 |
+| 六个 tool 用真实 `defineTool` 注册 | **PASS（unit）** | `tests/plugin.test.ts` |
+| DSH bundle discovery | **LIVE VERIFIED** | `dsh plugin --profile … install` 把 `dsh-sessionflow` 写进 `dsh.profile.bundles` |
+| DSH composition tree | **LIVE VERIFIED** | `dsh --profile … --dump-config` 显示 `- id: dsh-sessionflow` |
+| 真实 Agent 能看到 tool 注册 | **LIVE VERIFIED** | 真实 DSH 回合的 request header 含全部六个 schema |
+| 自然语言自主选择 tool | **LIVE VERIFIED** | 只问"我之前这个项目做到哪了？"（未提任何 tool 名），Agent **第一个动作**就是 `sessionflow_current_work` |
+| 真实 Agent 调用 tool | **LIVE VERIFIED** | DSH session log 中 4 条 `tool/call` 记录 |
+| sessionFlow bridge 真实执行 | **LIVE VERIFIED** | 返回真实索引数据（266 sessions / 150,089 events / 8 providers） |
+| 跨 Agent 上下文检索 | **LIVE VERIFIED** | 返回的 WorkThread 成员横跨 `claude` 与 `zcode`；搜索命中横跨 `zcode`/`claude`/`grok` |
+| `dsh plugin add` 落地本地包链接 | **NOT VERIFIED** | pnpm 11.22.0 `hoisted` linker 没建链接；已知可用的第三方 bundle 表现相同 ⇒ 属环境问题 |
+
+完整记录与 tool 调用明细见 [`docs/live-verification.md`](docs/live-verification.md)。
 
 使用环境：`@deepseek-ai/dsh` 0.1.5-rc.3、`@deepseek-ai/cordis` 4.0.2、
 Node 22.22.2、Windows。

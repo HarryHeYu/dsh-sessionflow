@@ -124,15 +124,21 @@ claim to support "all future versions".
 
 Stated at the level actually reached — nothing below is promoted.
 
-| Claim | Level | Evidence |
+| Capability | Status | Evidence |
 |---|---|---|
-| Bridge mechanics: resolution, deadline, malformed JSON, non-zero exit, schema gate | **UNIT TESTED** | `tests/bridge.test.ts`, stub executables |
-| JSON round-trip against the real core | **INTEGRATION TESTED** | `tests/bridge.test.ts`, real `voyager` on a seeded temporary index |
-| All six tools register with the real `defineTool` | **UNIT TESTED** | `tests/plugin.test.ts` |
-| `dsh.bundle` manifest is recognised and the bundle joins the profile layer stack | **LIVE VERIFIED** | `dsh plugin --profile sessionflow-test install` added `dsh-sessionflow` to `dsh.profile.bundles` |
-| The plugin row reaches the composed profile tree | **LIVE VERIFIED** | `dsh --profile sessionflow-test --dump-config` shows `- id: dsh-sessionflow` |
-| An agent calls the tools inside a real DSH turn | **NOT VERIFIED** | requires an LLM turn; not run here |
-| `dsh plugin add` materialises the package link | **NOT VERIFIED** | pnpm 11.22.0 in the test environment did not create the link; a known-good third-party bundle failed identically, so this is environmental, not specific to this package |
+| Bridge mechanics: resolution, deadline, malformed JSON, non-zero exit, schema gate | **PASS (unit)** | `tests/bridge.test.ts`, stub executables |
+| JSON round-trip against the real core | **PASS (integration)** | `tests/bridge.test.ts`, real `voyager` on a seeded index |
+| Six tools register through the real `defineTool` | **PASS (unit)** | `tests/plugin.test.ts` |
+| DSH bundle discovery | **LIVE VERIFIED** | `dsh plugin --profile … install` added `dsh-sessionflow` to `dsh.profile.bundles` |
+| DSH composition tree | **LIVE VERIFIED** | `dsh --profile … --dump-config` shows `- id: dsh-sessionflow` |
+| Tool registration visible to a real agent | **LIVE VERIFIED** | all six schemas in the request header of a real DSH turn |
+| Natural-language autonomous tool selection | **LIVE VERIFIED** | asked "我之前这个项目做到哪了？" with no tool named; the agent's first action was `sessionflow_current_work` |
+| Real agent tool invocation | **LIVE VERIFIED** | 4 `tool/call` records in DSH's session log |
+| sessionFlow bridge execution | **LIVE VERIFIED** | results carried real index data (266 sessions / 150,089 events / 8 providers) |
+| Cross-agent context retrieval | **LIVE VERIFIED** | the returned WorkThread's members span `claude` and `zcode`; search hits span `zcode`/`claude`/`grok` |
+| `dsh plugin add` materialises a local package link | **NOT VERIFIED** | pnpm 11.22.0 `hoisted` linker did not create the link; a known-good third-party bundle failed identically, so this is environmental |
+
+Full transcript and tool-call records: [`docs/live-verification.md`](docs/live-verification.md).
 
 Environment used: `@deepseek-ai/dsh` 0.1.5-rc.3, `@deepseek-ai/cordis` 4.0.2,
 Node 22.22.2, Windows.
