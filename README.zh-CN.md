@@ -1,8 +1,10 @@
 # sessionFlow for DeepSeek Harness
 
-**在 DeepSeek Harness 里直接继续你在 Codex、Claude Code、Grok、ZCode 等编码 Agent 中做的工作。**
+**Cross-agent session continuity for DeepSeek Harness.**
 
-不是"又一个 session 管理器"，而是 **为 DSH 提供跨 Agent 的会话连续性**。
+在 DeepSeek Harness 里直接继续你在 Codex、Claude Code、Grok、ZCode 等编码 Agent 中做的工作。
+
+不是"又一个 session 管理器"，而是把 sessionFlow 的接续层以六个 tool 的形式提供给 DSH。
 
 ```
 用户：  继续我之前在 Claude Code 里对这个仓库做的工作。
@@ -50,22 +52,22 @@ pipx install voyager
 voyager scan
 
 # 2. 本插件，装进一个 DSH profile
-dsh plugin --profile web add sessionflow-dsh
+dsh plugin --profile web add dsh-sessionflow
 dsh --profile web
 ```
 
 从本地目录安装：
 
 ```sh
-git clone https://github.com/HarryHeYu/sessionflow-dsh
-cd sessionflow-dsh && npm install && npm run build
+git clone https://github.com/HarryHeYu/dsh-sessionflow
+cd dsh-sessionflow && npm install && npm run build
 dsh plugin --profile web add .
 ```
 
 确认已加载：
 
 ```sh
-dsh --profile web --dump-config | grep sessionflow-dsh
+dsh --profile web --dump-config | grep dsh-sessionflow
 ```
 
 ## 工具
@@ -92,7 +94,7 @@ dsh --profile web --dump-config | grep sessionflow-dsh
 
 ```yaml
 # cordis.patch.yml
-- id: sessionflow-dsh
+- id: dsh-sessionflow
   config:
     voyagerBin: 'C:/path/to/voyager.exe'   # 可选
     timeoutMs: 30000                        # 可选，单次调用超时
@@ -118,8 +120,8 @@ DSH 处于 Developer Preview，接口会变。插件声明它需要的 bridge `s
 | bridge 机制：解析、超时、坏 JSON、非零退出、schema 闸门 | **UNIT TESTED** | `tests/bridge.test.ts`，stub 可执行文件 |
 | 与真实核心的 JSON 往返 | **INTEGRATION TESTED** | `tests/bridge.test.ts`，真实 `voyager` + 临时索引 |
 | 六个 tool 用真实 `defineTool` 注册 | **UNIT TESTED** | `tests/plugin.test.ts` |
-| `dsh.bundle` manifest 被识别、bundle 进入 profile 层栈 | **LIVE VERIFIED** | `dsh plugin --profile sessionflow-test install` 把 `sessionflow-dsh` 写进了 `dsh.profile.bundles` |
-| 插件行出现在组合后的 profile 树里 | **LIVE VERIFIED** | `dsh --profile sessionflow-test --dump-config` 显示 `- id: sessionflow-dsh` |
+| `dsh.bundle` manifest 被识别、bundle 进入 profile 层栈 | **LIVE VERIFIED** | `dsh plugin --profile sessionflow-test install` 把 `dsh-sessionflow` 写进了 `dsh.profile.bundles` |
+| 插件行出现在组合后的 profile 树里 | **LIVE VERIFIED** | `dsh --profile sessionflow-test --dump-config` 显示 `- id: dsh-sessionflow` |
 | Agent 在真实 DSH 回合中调用这些 tool | **NOT VERIFIED** | 需要一次 LLM 回合，此处未跑 |
 | `dsh plugin add` 真正落地包链接 | **NOT VERIFIED** | 测试环境里的 pnpm 11.22.0 没有创建链接；已知可用的第三方 bundle 表现相同，属环境问题而非本包问题 |
 

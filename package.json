@@ -1,7 +1,7 @@
 {
-  "name": "sessionflow-dsh",
+  "name": "dsh-sessionflow",
   "version": "0.1.0",
-  "description": "Cross-agent session continuity for DeepSeek Harness — continue work from Codex, Claude Code, Grok, ZCode and other coding agents directly inside DSH.",
+  "description": "Cross-agent session continuity for DeepSeek Harness. Continue work from Codex, Claude Code, Grok, ZCode and other coding agents directly inside DSH.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -23,9 +23,9 @@
   "author": "HarryHeYu",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/HarryHeYu/sessionflow-dsh.git"
+    "url": "git+https://github.com/HarryHeYu/dsh-sessionflow.git"
   },
-  "homepage": "https://github.com/HarryHeYu/sessionflow-dsh",
+  "homepage": "https://github.com/HarryHeYu/dsh-sessionflow",
   "keywords": [
     "dsh-plugin",
     "deepseek-harness",

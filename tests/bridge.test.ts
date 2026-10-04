@@ -1,5 +1,5 @@
 /**
- * sessionflow-dsh — bridge contract tests.
+ * dsh-sessionflow — bridge contract tests.
  *
  * Two layers:
  *

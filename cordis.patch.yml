@@ -1,7 +1,7 @@
-# sessionflow-dsh bundle patch: insert the plugin row into the profile tree.
+# dsh-sessionflow bundle patch: insert the plugin row into the profile tree.
 #
 # Installed as a bundle, the plugin row references the package by name (Node
 # resolves the installed code); activation order follows service dependencies.
 - insert:
-    - id: sessionflow-dsh
-      name: sessionflow-dsh
+    - id: dsh-sessionflow
+      name: dsh-sessionflow

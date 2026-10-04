@@ -36,7 +36,7 @@ function fakeContext(): { ctx: unknown; registered: RegisteredTool[] } {
 }
 
 test('the plugin declares its name and the tools service', () => {
-  assert.equal(name, 'sessionflow-dsh');
+  assert.equal(name, 'dsh-sessionflow');
   assert.deepEqual(inject, ['tools']);
 });
 

@@ -1,9 +1,12 @@
 # sessionFlow for DeepSeek Harness
 
-**Continue work from Codex, Claude Code, Grok, ZCode and other coding agents
-directly inside DeepSeek Harness.**
+**Cross-agent session continuity for DeepSeek Harness.**
 
-Not "yet another session manager" — **cross-agent session continuity for DSH**.
+Continue work from Codex, Claude Code, Grok, ZCode and other coding agents
+directly inside DSH.
+
+Not "yet another session manager" — sessionFlow's continuity layer, exposed to
+DSH as six tools.
 
 ```
 User:  Continue the work I was doing in Claude Code on this repo.
@@ -54,22 +57,22 @@ pipx install voyager
 voyager scan
 
 # 2. this plugin, into a DSH profile
-dsh plugin --profile web add sessionflow-dsh
+dsh plugin --profile web add dsh-sessionflow
 dsh --profile web
 ```
 
 From a local checkout:
 
 ```sh
-git clone https://github.com/HarryHeYu/sessionflow-dsh
-cd sessionflow-dsh && npm install && npm run build
+git clone https://github.com/HarryHeYu/dsh-sessionflow
+cd dsh-sessionflow && npm install && npm run build
 dsh plugin --profile web add .
 ```
 
 Verify it loaded:
 
 ```sh
-dsh --profile web --dump-config | grep sessionflow-dsh
+dsh --profile web --dump-config | grep dsh-sessionflow
 ```
 
 ## Tools
@@ -98,7 +101,7 @@ Override it in the profile patch:
 
 ```yaml
 # cordis.patch.yml
-- id: sessionflow-dsh
+- id: dsh-sessionflow
   config:
     voyagerBin: 'C:/path/to/voyager.exe'   # optional
     timeoutMs: 30000                        # optional, per call
@@ -126,8 +129,8 @@ Stated at the level actually reached — nothing below is promoted.
 | Bridge mechanics: resolution, deadline, malformed JSON, non-zero exit, schema gate | **UNIT TESTED** | `tests/bridge.test.ts`, stub executables |
 | JSON round-trip against the real core | **INTEGRATION TESTED** | `tests/bridge.test.ts`, real `voyager` on a seeded temporary index |
 | All six tools register with the real `defineTool` | **UNIT TESTED** | `tests/plugin.test.ts` |
-| `dsh.bundle` manifest is recognised and the bundle joins the profile layer stack | **LIVE VERIFIED** | `dsh plugin --profile sessionflow-test install` added `sessionflow-dsh` to `dsh.profile.bundles` |
-| The plugin row reaches the composed profile tree | **LIVE VERIFIED** | `dsh --profile sessionflow-test --dump-config` shows `- id: sessionflow-dsh` |
+| `dsh.bundle` manifest is recognised and the bundle joins the profile layer stack | **LIVE VERIFIED** | `dsh plugin --profile sessionflow-test install` added `dsh-sessionflow` to `dsh.profile.bundles` |
+| The plugin row reaches the composed profile tree | **LIVE VERIFIED** | `dsh --profile sessionflow-test --dump-config` shows `- id: dsh-sessionflow` |
 | An agent calls the tools inside a real DSH turn | **NOT VERIFIED** | requires an LLM turn; not run here |
 | `dsh plugin add` materialises the package link | **NOT VERIFIED** | pnpm 11.22.0 in the test environment did not create the link; a known-good third-party bundle failed identically, so this is environmental, not specific to this package |
 

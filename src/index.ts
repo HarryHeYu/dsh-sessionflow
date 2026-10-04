@@ -1,12 +1,12 @@
 /**
- * sessionflow-dsh — cross-agent session continuity for DeepSeek Harness.
+ * dsh-sessionflow — sessionFlow for DeepSeek Harness.
  *
- * Continue work from Codex, Claude Code, Grok, ZCode and the other coding
- * agents directly inside DSH.  The plugin is a **thin adapter**: it registers
- * six tools and forwards every call to the existing sessionFlow/Voyager core
- * over its stable JSON interface.  No session parsing, indexing, ranking,
- * merging or context compilation happens here — the core stays the single
- * source of truth.
+ * Cross-agent session continuity for DeepSeek Harness.  Continue work from
+ * Codex, Claude Code, Grok, ZCode and the other coding agents directly inside
+ * DSH.  The plugin is a **thin adapter**: it registers six tools and forwards
+ * every call to the existing sessionFlow/Voyager core over its stable JSON
+ * interface.  No session parsing, indexing, ranking, merging or context
+ * compilation happens here — the core stays the single source of truth.
  *
  *   DSH → plugin tool → bridge (argv, JSON) → Voyager core → structured result
  */
@@ -24,7 +24,7 @@ import { currentWorkTool } from './tools/current-work.js';
 import { continueTool } from './tools/continue.js';
 import { mergeTool } from './tools/merge.js';
 
-export const name = 'sessionflow-dsh';
+export const name = 'dsh-sessionflow';
 
 /** The tools service must be mounted before the tools can be registered. */
 export const inject = ['tools'];
@@ -71,7 +71,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   void integrationInfo(bridge)
     .then(assertCompatible)
     .catch((e: unknown) => {
-      ctx.logger.warn(`[sessionflow-dsh] ${e instanceof Error ? e.message : String(e)}`);
+      ctx.logger.warn(`[dsh-sessionflow] ${e instanceof Error ? e.message : String(e)}`);
     });
 }
 
