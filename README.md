@@ -140,6 +140,23 @@ Stated at the level actually reached — nothing below is promoted.
 
 Full transcript and tool-call records: [`docs/live-verification.md`](docs/live-verification.md).
 
+### Automated compatibility (O6.5 consumer closure, 2026-10-06)
+
+The six tools were re-verified as a thin adapter against a pinned core —
+input → bridge call → result formatting, nothing else:
+
+| Pinned | SHA |
+|---|---|
+| sessionFlow core | `3b98bcd` |
+| Bridge schema | `1` (no request/response shape change → no bump) |
+| dsh-sessionflow | `37e4317` |
+
+Verification for this closure is **automated contract tests only**
+(`npm test`: 23 passed, `npm run build`: clean).  The LIVE VERIFIED rows
+above are the historical real-agent run and are *not* re-claimed by this
+closure; a live DSH rerun was not required because no public contract
+changed since that run.
+
 Environment used: `@deepseek-ai/dsh` 0.1.5-rc.3, `@deepseek-ai/cordis` 4.0.2,
 Node 22.22.2, Windows.
 
