@@ -39,14 +39,16 @@ export function recentTool(bridge: BridgeOptions) {
     async execute(args) {
       return await guarded(async () => {
         const limit = args.limit ?? 12;
+        // The core's `overview` op has no provider filter, so a provider
+        // narrowing has to happen here — but applying it *after* the core's
+        // `limit` would silently under-return.  Ask for a wider window first so
+        // the filtered list can still reach `limit`.
+        const want = args.provider ? Math.min(limit * 4, 200) : limit;
         const ov = await callOp<Overview>('overview', {
           repo: args.repo ?? null,
           hours: args.hours ?? 48,
-          limit,
+          limit: want,
         }, bridge);
-        // The overview op has no provider argument, so a provider filter is a
-        // display narrowing on rows the core already returned -- not a second
-        // query implementation.
         const sessions = args.provider
           ? ov.recent_sessions.filter((s) => s.provider === args.provider)
           : ov.recent_sessions;

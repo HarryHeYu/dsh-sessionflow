@@ -14,7 +14,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -102,6 +102,28 @@ test('a hanging op hits the deadline and becomes TIMEOUT', async () => {
     () => callOp('search', { query: 'x' }, stub('stub-hang.mjs', { timeoutMs: 800 })),
     (e: unknown) => e instanceof VoyagerError && e.code === 'TIMEOUT',
   );
+});
+
+test('the deadline kills the child, not just the promise', async () => {
+  resetBridgeCache();
+  const marker = join(makeTmpDir('dsh-sessionflow-kill-'), 'marker.txt');
+  writeFileSync(marker, '');
+  process.env['SESSIONFLOW_TEST_MARKER'] = marker;
+  try {
+    // Generous deadline: interpreter startup alone can take a second, and the
+    // point is that the child is KILLED, not that the timer is precise.
+    await assert.rejects(
+      () => callOp('search', { query: 'x' }, stub('stub-marker.mjs', { timeoutMs: 6000 })),
+      (e: unknown) => e instanceof VoyagerError && e.code === 'TIMEOUT',
+    );
+    const atDeadline = statSync(marker).size;
+    assert.ok(atDeadline > 0, 'the child never ran, so this test proved nothing');
+    await new Promise((r) => setTimeout(r, 1500));
+    assert.equal(statSync(marker).size, atDeadline,
+      'the child kept writing after the deadline — it was not killed');
+  } finally {
+    delete process.env['SESSIONFLOW_TEST_MARKER'];
+  }
 });
 
 test('a non-zero exit becomes CLI_FAILED carrying the exit code', async () => {

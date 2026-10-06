@@ -88,14 +88,28 @@ interface RunResult {
   code: number | null;
 }
 
-/** The discovered command is stable for a process, so probe once. */
+/** The discovered command is stable per configuration, so probe once — but the
+ *  cache is keyed on the configuration, not global: two callers with different
+ *  `voyagerBin` must not silently share the first one's answer. */
+let cachedKey: string | null = null;
 let cachedCommand: VoyagerCommand | null = null;
 let cachedInfo: IntegrationInfo | null = null;
+let cachedInfoKey: string | null = null;
 
 /** Reset the process-wide caches (tests). */
 export function resetBridgeCache(): void {
+  cachedKey = null;
   cachedCommand = null;
   cachedInfo = null;
+  cachedInfoKey = null;
+}
+
+function cacheKey(opts: BridgeOptions): string {
+  return JSON.stringify([
+    opts.voyagerBin ?? process.env['VOYAGER_BIN'] ?? null,
+    opts.voyagerArgs ?? null,
+    opts.python ?? process.env['VOYAGER_PYTHON'] ?? null,
+  ]);
 }
 
 function candidates(opts: BridgeOptions): VoyagerCommand[] {
@@ -182,7 +196,10 @@ async function probe(cmd: VoyagerCommand, opts: BridgeOptions): Promise<boolean>
       { ...opts, timeoutMs: Math.max(opts.timeoutMs ?? PROBE_TIMEOUT_MS, PROBE_TIMEOUT_MS) });
     if (code !== 0) return false;
     const info = JSON.parse(stdout.trim()) as IntegrationInfo;
-    return typeof info.schema_version === 'number';
+    // A core that answers but is too old must NOT be selected: caching it would
+    // pin the whole process to a binary every tool then rejects.
+    return typeof info.schema_version === 'number'
+      && info.schema_version >= REQUIRED_SCHEMA_VERSION;
   } catch {
     return false;
   }
@@ -198,10 +215,12 @@ async function probe(cmd: VoyagerCommand, opts: BridgeOptions): Promise<boolean>
  * Python installs, where only one of them has the package.
  */
 export async function resolveVoyager(opts: BridgeOptions = {}): Promise<VoyagerCommand> {
-  if (cachedCommand) return cachedCommand;
+  const key = cacheKey(opts);
+  if (cachedCommand && cachedKey === key) return cachedCommand;
   for (const cmd of candidates(opts)) {
     if (await probe(cmd, opts)) {
       cachedCommand = cmd;
+      cachedKey = key;
       return cmd;
     }
   }
@@ -257,12 +276,14 @@ export async function runJson<T>(argv: string[], opts: BridgeOptions = {}): Prom
   }
 }
 
-/** The core's version/capability probe, cached for the process. */
+/** The core's version/capability probe, cached per configuration. */
 export async function integrationInfo(opts: BridgeOptions = {}): Promise<IntegrationInfo> {
-  if (!cachedInfo) {
-    cachedInfo = await runJson<IntegrationInfo>(['integration-info'], opts);
-  }
-  return cachedInfo;
+  const key = cacheKey(opts);
+  if (cachedInfo && cachedInfoKey === key) return cachedInfo;
+  const info = await runJson<IntegrationInfo>(['integration-info'], opts);
+  cachedInfo = info;
+  cachedInfoKey = key;
+  return info;
 }
 
 /** Fail clearly when the core is older than the bridge this plugin drives. */
