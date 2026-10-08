@@ -50,6 +50,17 @@ export function apply(ctx: Context, config: Config = {}): void {
   if (config.python !== undefined) bridge.python = config.python;
   if (config.timeoutMs !== undefined) bridge.timeoutMs = config.timeoutMs;
 
+  // `voyagerArgs` is only applied to a candidate that also has `voyagerBin`
+  // set, so on its own it is silently dropped and the plugin quietly talks to
+  // the default core instead of the one the operator configured.  Say so.
+  if (config.voyagerArgs !== undefined && config.voyagerArgs.length > 0
+      && config.voyagerBin === undefined && process.env['VOYAGER_BIN'] === undefined) {
+    ctx.logger.warn(
+      '[dsh-sessionflow] `voyagerArgs` is set without `voyagerBin`, so it will be ' +
+      'ignored and the default `voyager` will be used. Set both together, e.g. ' +
+      'voyagerBin: py + voyagerArgs: [-m, voyager.cli, --db, <index>].');
+  }
+
   ctx.effect(() => {
     const tools = [
       searchTool(bridge),
