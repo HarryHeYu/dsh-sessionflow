@@ -57,20 +57,45 @@ cd sessionFlow
 pip install -e .
 voyager scan
 
-# 2. 本插件，从源码装
-git clone https://github.com/HarryHeYu/dsh-sessionflow
-cd dsh-sessionflow
-npm install
-npm run build
-dsh plugin --profile web add .
+# 2. 本插件，直接从 GitHub 装
+dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow
 dsh --profile web
 ```
 
-确认已加载：
+pnpm 默认**不允许** git 来源的包执行构建脚本，所以第一次 `add` 会停下并打印
+它需要的那个 key。把该 key 写进 profile 的 `pnpm-workspace.yaml`，再跑一次同样的
+`add`：
+
+```yaml
+# <profile>/pnpm-workspace.yaml —— key 由失败的那次 add 打印出来
+allowBuilds:
+  dsh-sessionflow@git+https://github.com/HarryHeYu/dsh-sessionflow.git#<sha>: true
+```
+
+这一步**不能跳过**：插件是 TypeScript 写的，`prepare` 负责在安装时编译出 `lib/`。
+
+### 从本地目录安装
+
+要改插件本身？用 `file:` 前缀：
+
+```sh
+git clone https://github.com/HarryHeYu/dsh-sessionflow
+cd dsh-sessionflow && npm install && npm run build
+dsh plugin --profile web add file:$PWD
+```
+
+**用 `file:`，不要用裸路径。** 裸路径会变成 pnpm 的 `link:` 依赖，而 DSH 配的
+`nodeLinker: hoisted` 不会为它创建 symlink —— 安装看起来成功了，但 profile
+**读不到** `dsh.bundle`，插件不会加载。`file:` 走的是拷贝，能正常工作。
+
+### 确认已加载
 
 ```sh
 dsh --profile web --dump-config | grep dsh-sessionflow
 ```
+
+应当看到 `- id: dsh-sessionflow`。若 core 缺失，工具仍会注册，但每次调用都会
+以明确的错误指出它尝试运行的 `voyager` 可执行文件 —— 见「疑难排查」。
 
 ## 工具
 
@@ -135,6 +160,50 @@ DSH 处于 Developer Preview，接口会变。插件声明它需要的 bridge `s
 
 使用环境：`@deepseek-ai/dsh` 0.1.5-rc.3、`@deepseek-ai/cordis` 4.0.2、
 Node 22.22.2、Windows。
+
+## 疑难排查
+
+**工具注册了，但每次调用都失败。**
+core 缺失或不在 `PATH` 上。直接检查：
+
+```sh
+voyager --version
+```
+
+若失败，按[安装](#安装)从源码装 core，并确认提供 `voyager` 入口的解释器就是 DSH
+继承到的那个。错误信息里会写出它尝试运行的可执行文件。
+
+**`pip install voyager` 装错了东西。**
+确实会 —— PyPI 上的 `voyager` 是一个毫不相干的最近邻搜索库。先卸载，再从
+sessionFlow 仓库装。
+
+**`dsh plugin add dsh-sessionflow` 找不到包。**
+插件不在 npm 上。改用 GitHub 写法：
+
+```sh
+dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow
+```
+
+**`add` 报 `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`。**
+pnpm 默认不允许 git 来源的包执行构建脚本。错误里会打印它需要的那个 key ——
+写进 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds`，再跑一次同样的 `add`。
+这一步**不能跳过**：插件是 TypeScript，`prepare` 负责编译 `lib/`。
+
+**`add` 报 `declares no dsh.bundle`，且 `node_modules` 是空的。**
+你加的是**裸本地路径**。pnpm 会把它变成 `link:` 依赖，而 DSH 配的
+`nodeLinker: hoisted` 不创建 symlink，于是 profile 读不到包里的 `dsh.bundle`。
+改用 `file:`：
+
+```sh
+dsh plugin --profile web add file:$PWD
+```
+
+若用的是 `github:` 或 `file:` 却仍看到这条警告，那就是别的原因 —— 检查包里
+是否存在 `lib/`，因为 DSH 读的是**已安装副本**的 manifest。
+
+**插件加载了，但 profile 里看不到 `dsh-sessionflow` 那一行。**
+跑 `dsh --profile <p> --dump-config`，找 `- id: dsh-sessionflow`。
+找不到的话 bundle 没被发现 —— 见上面两条。
 
 ## 安全
 

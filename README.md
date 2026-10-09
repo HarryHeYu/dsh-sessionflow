@@ -64,23 +64,48 @@ cd sessionFlow
 pip install -e .
 voyager scan
 
-# 2. this plugin, from source
-git clone https://github.com/HarryHeYu/dsh-sessionflow
-cd dsh-sessionflow
-npm install
-npm run build
-dsh plugin --profile web add .
+# 2. this plugin, straight from GitHub
+dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow
 dsh --profile web
 ```
 
-Verify it loaded:
+pnpm blocks build scripts for git-hosted packages until you allow them, so the
+first `add` will stop and print the exact key it wants. Put that key in the
+profile's `pnpm-workspace.yaml` and run the same `add` again:
+
+```yaml
+# <profile>/pnpm-workspace.yaml — the key is printed by the failing `add`
+allowBuilds:
+  dsh-sessionflow@git+https://github.com/HarryHeYu/dsh-sessionflow.git#<sha>: true
+```
+
+The plugin needs that build step: it is TypeScript, and `prepare` compiles
+`lib/` on install.
+
+### From a local checkout
+
+Working on the plugin itself? Use a `file:` specifier:
+
+```sh
+git clone https://github.com/HarryHeYu/dsh-sessionflow
+cd dsh-sessionflow && npm install && npm run build
+dsh plugin --profile web add file:$PWD
+```
+
+Use `file:`, not a bare path. A bare path becomes a pnpm `link:` dependency,
+and DSH's `nodeLinker: hoisted` does not create the symlink for those — the
+install looks like it worked, but the profile never sees `dsh.bundle` and the
+plugin does not load. `file:` copies instead, which works.
+
+### Verify
 
 ```sh
 dsh --profile web --dump-config | grep dsh-sessionflow
 ```
 
-If the core is missing, the tools still register but every call fails with a
-clear message naming the `voyager` binary — see [Troubleshooting](#troubleshooting).
+You should see `- id: dsh-sessionflow`. If the core is missing, the tools still
+register but every call fails with a clear message naming the `voyager` binary —
+see [Troubleshooting](#troubleshooting).
 
 ## Tools
 
@@ -185,13 +210,34 @@ It did — the `voyager` name on PyPI is an unrelated nearest-neighbour library.
 Uninstall it and install from the sessionFlow repository instead.
 
 **`dsh plugin add dsh-sessionflow` cannot find the package.**
-The plugin is not on npm. Clone it and add the local path: `dsh plugin
---profile web add .` from inside the checkout.
+The plugin is not on npm. Use the GitHub specifier instead:
+
+```sh
+dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow
+```
+
+**`add` fails with `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`.**
+pnpm will not run a git-hosted package's build script until you allow it. The
+error prints the exact key — put it under `allowBuilds` in the profile's
+`pnpm-workspace.yaml` and run the same `add` again. The plugin cannot skip this:
+it ships TypeScript, and `prepare` is what compiles `lib/`.
+
+**`add` reported `declares no dsh.bundle`, and `node_modules` is empty.**
+You added a bare local path. pnpm turns that into a `link:` dependency, and with
+DSH's `nodeLinker: hoisted` no symlink is created, so the profile cannot read the
+package's `dsh.bundle`. Use `file:` instead:
+
+```sh
+dsh plugin --profile web add file:$PWD
+```
+
+The same warning with a `github:` or `file:` specifier means something else —
+check that `lib/` exists in the package, since DSH reads the manifest from the
+installed copy.
 
 **The plugin loads but a profile shows no `dsh-sessionflow` line.**
 Run `dsh --profile <p> --dump-config` and look for `- id: dsh-sessionflow`.
-If it is absent, the bundle was not discovered — check that `npm run build`
-produced `lib/` before `dsh plugin add`.
+If it is absent, the bundle was not discovered — see the two entries above.
 
 ## Security
 
