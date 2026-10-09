@@ -45,28 +45,32 @@ JSON interface.
 
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`)
   — tested against **0.1.5-rc.3**
-- [sessionFlow / Voyager](https://github.com/HarryHeYu/sessionFlow) installed
-  and indexed: `pipx install voyager`, then `voyager scan`
+- [sessionFlow / Voyager](https://github.com/HarryHeYu/sessionFlow), installed
+  **from source** and indexed. It is not published to PyPI — the `voyager` name
+  on PyPI belongs to an unrelated nearest-neighbour library, so `pip install
+  voyager` will install the wrong project.
 - Node.js **22.19+**
 
 ## Install
 
+Both pieces are installed from their Git repositories. Neither is published to
+PyPI or npm, so there is no `pipx install` / `dsh plugin add <name>` one-liner
+that works today.
+
 ```sh
-# 1. the core, plus an initial index
-pipx install voyager
+# 1. the core, from source
+git clone https://github.com/HarryHeYu/sessionFlow
+cd sessionFlow
+pip install -e .
 voyager scan
 
-# 2. this plugin, into a DSH profile
-dsh plugin --profile web add dsh-sessionflow
-dsh --profile web
-```
-
-From a local checkout:
-
-```sh
+# 2. this plugin, from source
 git clone https://github.com/HarryHeYu/dsh-sessionflow
-cd dsh-sessionflow && npm install && npm run build
+cd dsh-sessionflow
+npm install
+npm run build
 dsh plugin --profile web add .
+dsh --profile web
 ```
 
 Verify it loaded:
@@ -74,6 +78,9 @@ Verify it loaded:
 ```sh
 dsh --profile web --dump-config | grep dsh-sessionflow
 ```
+
+If the core is missing, the tools still register but every call fails with a
+clear message naming the `voyager` binary — see [Troubleshooting](#troubleshooting).
 
 ## Tools
 
@@ -159,6 +166,32 @@ changed since that run.
 
 Environment used: `@deepseek-ai/dsh` 0.1.5-rc.3, `@deepseek-ai/cordis` 4.0.2,
 Node 22.22.2, Windows.
+
+## Troubleshooting
+
+**The tools are registered but every call fails.**
+The core is missing or not on `PATH`. Check it directly:
+
+```sh
+voyager --version
+```
+
+If that fails, install the core from source (see [Install](#install)) and make
+sure the interpreter that provides the `voyager` entry point is the one DSH
+inherits. The error text names the binary it tried to run.
+
+**`pip install voyager` installed the wrong thing.**
+It did — the `voyager` name on PyPI is an unrelated nearest-neighbour library.
+Uninstall it and install from the sessionFlow repository instead.
+
+**`dsh plugin add dsh-sessionflow` cannot find the package.**
+The plugin is not on npm. Clone it and add the local path: `dsh plugin
+--profile web add .` from inside the checkout.
+
+**The plugin loads but a profile shows no `dsh-sessionflow` line.**
+Run `dsh --profile <p> --dump-config` and look for `- id: dsh-sessionflow`.
+If it is absent, the bundle was not discovered — check that `npm run build`
+produced `lib/` before `dsh plugin add`.
 
 ## Security
 
