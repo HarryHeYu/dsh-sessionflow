@@ -44,12 +44,21 @@ JSON interface.
 ## Requirements
 
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`)
-  — tested against **0.1.5-rc.3**
+  — tested against **0.1.5-rc.3**, **with a working model provider**. A fresh
+  `headless` profile has no LLM adapter and no credentials, and DSH stops with
+  `MISSING_CREDENTIAL: … no API key for provider route`. That is the host's
+  configuration, not this plugin's: **this plugin does not provide model
+  access** and cannot work around a missing provider. Set up the provider
+  before installing anything here.
 - [sessionFlow / Voyager](https://github.com/HarryHeYu/sessionFlow), installed
   **from source** and indexed. It is not published to PyPI — the `voyager` name
   on PyPI belongs to an unrelated nearest-neighbour library, so `pip install
   voyager` will install the wrong project.
 - Node.js **22.19+**
+
+So there are two independent dependencies: DSH needs a model provider to run at
+all, and this plugin needs the sessionFlow core to answer anything. The plugin
+adds no third one.
 
 ## Install
 

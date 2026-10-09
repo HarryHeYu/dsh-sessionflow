@@ -39,11 +39,18 @@ Kiro ────────┘
 ## 前置要求
 
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）
-  —— 实测版本 **0.1.5-rc.3**
+  —— 实测版本 **0.1.5-rc.3**，且**模型 provider 必须可用**。全新的 `headless`
+  profile 既没有 LLM adapter 也没有凭证，DSH 会直接停下并报
+  `MISSING_CREDENTIAL: … no API key for provider route`。那属于**宿主的配置**，
+  不是本插件的问题：**本插件不提供模型访问能力**，也无法绕过一个缺失的 provider。
+  请先把 provider 配好，再装这里的东西。
 - [sessionFlow / Voyager](https://github.com/HarryHeYu/sessionFlow)，
   **从源码安装**并建好索引。它**没有发布到 PyPI** —— PyPI 上的 `voyager`
   是一个毫不相干的最近邻搜索库，`pip install voyager` 会装错项目。
 - Node.js **22.19+**
+
+也就是说这里有**两个彼此独立**的依赖：DSH 需要模型 provider 才能运行，本插件需要
+sessionFlow core 才能回答任何问题。本插件不会引入第三个。
 
 ## 安装
 
