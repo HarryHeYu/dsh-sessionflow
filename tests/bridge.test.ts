@@ -80,7 +80,11 @@ test('a missing core is reported with an actionable message', async () => {
       (e: unknown) =>
         e instanceof VoyagerError &&
         e.code === 'VOYAGER_NOT_FOUND' &&
-        /pipx install voyager/.test(e.message),
+        // The message must point at the source install: the `voyager` name on
+        // PyPI is an unrelated library, so a pipx hint would send the user to
+        // the wrong project.
+        /github\.com\/HarryHeYu\/sessionFlow/.test(e.message) &&
+        !/pipx/.test(e.message),
     );
   } finally {
     if (saved !== undefined) process.env['PATH'] = saved;

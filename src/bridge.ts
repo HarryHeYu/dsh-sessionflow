@@ -225,8 +225,10 @@ export async function resolveVoyager(opts: BridgeOptions = {}): Promise<VoyagerC
     }
   }
   throw new VoyagerError('VOYAGER_NOT_FOUND',
-    'sessionFlow/Voyager is not installed or not on PATH. Install it with ' +
-    '`pipx install voyager` (or `pip install voyager`), then restart DSH. ' +
+    'sessionFlow/Voyager is not installed or not on PATH. Install it from ' +
+    'source: `git clone https://github.com/HarryHeYu/sessionFlow && cd ' +
+    'sessionFlow && pip install -e .`, then restart DSH. It is not on PyPI -- ' +
+    'the `voyager` name there belongs to an unrelated library. ' +
     'If it is installed elsewhere, set VOYAGER_BIN to the executable path.');
 }
 
@@ -291,7 +293,7 @@ export function assertCompatible(info: IntegrationInfo): void {
   if (info.schema_version < REQUIRED_SCHEMA_VERSION) {
     throw new VoyagerError('INCOMPATIBLE',
       `sessionFlow bridge schema ${info.schema_version} is older than the ` +
-      `${REQUIRED_SCHEMA_VERSION} this plugin needs. Upgrade with ` +
-      '`pipx upgrade voyager` (or `pip install -U voyager`).');
+      `${REQUIRED_SCHEMA_VERSION} this plugin needs. Update the source ` +
+      'checkout and reinstall (`git pull && pip install -e .`).');
   }
 }

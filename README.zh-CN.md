@@ -40,28 +40,30 @@ Kiro ────────┘
 
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）
   —— 实测版本 **0.1.5-rc.3**
-- [sessionFlow / Voyager](https://github.com/HarryHeYu/sessionFlow) 已安装并建好索引：
-  `pipx install voyager`，然后 `voyager scan`
+- [sessionFlow / Voyager](https://github.com/HarryHeYu/sessionFlow)，
+  **从源码安装**并建好索引。它**没有发布到 PyPI** —— PyPI 上的 `voyager`
+  是一个毫不相干的最近邻搜索库，`pip install voyager` 会装错项目。
 - Node.js **22.19+**
 
 ## 安装
 
+两部分都从各自的 Git 仓库安装。它们都没有发布到 PyPI 或 npm，
+所以今天**没有**能用的 `pipx install` / `dsh plugin add <包名>` 一行命令。
+
 ```sh
-# 1. 核心 + 初次索引
-pipx install voyager
+# 1. 核心，从源码装
+git clone https://github.com/HarryHeYu/sessionFlow
+cd sessionFlow
+pip install -e .
 voyager scan
 
-# 2. 本插件，装进一个 DSH profile
-dsh plugin --profile web add dsh-sessionflow
-dsh --profile web
-```
-
-从本地目录安装：
-
-```sh
+# 2. 本插件，从源码装
 git clone https://github.com/HarryHeYu/dsh-sessionflow
-cd dsh-sessionflow && npm install && npm run build
+cd dsh-sessionflow
+npm install
+npm run build
 dsh plugin --profile web add .
+dsh --profile web
 ```
 
 确认已加载：
