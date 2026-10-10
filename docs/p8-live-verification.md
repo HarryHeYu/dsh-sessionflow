@@ -191,11 +191,31 @@ core — the plugin's own subprocess calls (through the bridge) worked throughou
 
 ## Reproducing
 
+The harness is development scratch, not shipped code — it hard-codes an `E:`
+scratch root and a local profile name, which is fine for a one-off run and not
+fine for a repository.  Two scripts, both re-runnable:
+
 ```
-E:\sessionflow-scratch\p8\seed_e2e.py     # build the fixture index (read-only wrt user data)
-E:\sessionflow-scratch\p8\run_e2e.sh A B C D E1 E2
+<scratch>\seed_e2e.py     # builds the fixture index and the demo repos
+<scratch>\run_e2e.sh A B C D E1 E2
 ```
 
-`run_e2e.sh` backs up the profile's `cordis.patch.yml`, points `voyagerBin`/`voyagerArgs`
-at the fixture, runs each scenario in its own demo repo, extracts the tool
-trajectory from DSH's session log, and restores the patch to `[]`.
+`seed_e2e.py` writes only under its own scratch root: it never reads a real
+Voyager index and never writes to a real agent session.  `run_e2e.sh` backs up
+the profile's `cordis.patch.yml`, points `voyagerBin`/`voyagerArgs` at the
+fixture, runs each scenario in its own demo repo, extracts the tool trajectory
+from DSH's session log, and restores the patch to `[]`.
+
+Two things to get right if you rebuild it:
+
+* pass `voyagerBin: 'py'` and `voyagerArgs: ['-m', 'voyager.cli', '--db', <index>]`
+  — the configured executable must be able to `import voyager` **from the
+  workspace directory**, which a bare `python` on this machine cannot;
+* run `dsh` with `PYTHONPATH` and `NODE_OPTIONS` cleared, because this
+  workstation injects a Python `sitecustomize` shim through `PYTHONPATH` that
+  the plugin's child process would inherit, stalling every bridge call.
+
+To rebuild the harness rather than run it, the shape is: a `Store` at the
+fixture path, one `replace_session` per provider with real `new_event` records,
+`thread_create` + `thread_attach` for each thread, and — for the retained case —
+`UPDATE sessions SET source_state='SOURCE_MISSING'` after the rows exist.
