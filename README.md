@@ -180,6 +180,10 @@ Stated at the level actually reached — nothing below is promoted.
 | Real agent tool invocation | **LIVE VERIFIED** | 4 `tool/call` records in DSH's session log |
 | sessionFlow bridge execution | **LIVE VERIFIED** | results carried real index data (266 sessions / 150,089 events / 8 providers) |
 | Cross-agent context retrieval | **LIVE VERIFIED** | the returned WorkThread's members span `claude` and `zcode`; search hits span `zcode`/`claude`/`grok` |
+| Continuation context used to pick up another agent's work | **LIVE VERIFIED** | six synthetic scenarios, real model, real index — see [`docs/p8-live-verification.md`](docs/p8-live-verification.md) |
+| Autonomous selection with a deliberately misleading handoff | **LIVE VERIFIED** | the fixture's sessions claim work the checkout does not contain; the agent checked the files and refused to repeat the claim |
+| Ambiguous repo: two active WorkThreads | **LIVE VERIFIED** | the agent listed both, refused to pick the newer one, and said why "newest" is not a verdict |
+| Native resume by an agent | **NOT VERIFIED** | no scenario launched another agent's session; retained/`SOURCE_MISSING` sessions were correctly described as context-only |
 | `dsh plugin add <bare local path>` | **DOCUMENTED LIMITATION** | a bare path becomes a pnpm `link:` dependency, and DSH's `nodeLinker: hoisted` does not create the symlink, so the package's `dsh.bundle` is never read. Use `file:` or `github:` — both verified on Linux CI. See [Troubleshooting](#troubleshooting) |
 
 The Linux cold-start jobs run on every push:

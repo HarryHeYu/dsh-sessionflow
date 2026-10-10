@@ -22,6 +22,20 @@ import { promisify } from 'node:util';
 
 const exec = promisify(execFile);
 
+// Captured before the first `await` suspends this module.  The mechanics tests
+// below empty `PATH` to prove that discovery fails, and a test body can run
+// while this module's top-level `await` is suspended — so anything that needs
+// to spawn an interpreter must pass this explicitly rather than read the
+// ambient value later.  (Without it the integration suite below skipped on
+// every machine, reporting "no python with the voyager package" for a python
+// that was right there.)
+const PATH_AT_LOAD = process.env['PATH'] ?? '';
+
+/** Spawn with the PATH this module started with, whatever the tests have done. */
+function execHermetic(file: string, args: string[]) {
+  return exec(file, args, { env: { ...process.env, PATH: PATH_AT_LOAD } });
+}
+
 // Temporary indexes are created under the OS temp dir and removed on exit:
 // a test suite must not leave scratch behind, least of all on a drive it does
 // not own.  Set SESSIONFLOW_TEST_TMPDIR to redirect them.
@@ -224,7 +238,7 @@ async function findPython(): Promise<string | null> {
   ].filter((c): c is string => typeof c === 'string' && c.length > 0);
   for (const c of candidates) {
     try {
-      await exec(c, ['-c', 'import voyager']);
+      await execHermetic(c, ['-c', 'import voyager']);
       return c;
     } catch {
       // try the next interpreter
@@ -259,17 +273,25 @@ print("seeded")
 
 const python = await findPython();
 let seeded: string | null = null;
+// The two ways this can fail mean different things, and one of them is a bug in
+// the harness rather than a missing dependency: an interpreter that has the
+// package but cannot seed the index must not be reported as "no python with the
+// voyager package", or the integration tests skip silently forever.
+let seedProblem = 'no python with the voyager package';
 if (python) {
   const db = join(makeTmpDir('dsh-sessionflow-'), 'index.db');
   try {
-    await exec(python, ['-c', SEED, db]);
+    await execHermetic(python, ['-c', SEED, db]);
     seeded = db;
-  } catch {
+  } catch (e) {
     seeded = null;
+    const detail = (e as { stderr?: string; message?: string });
+    seedProblem = `${python} has the package, but seeding the index failed: ` +
+      String(detail.stderr || detail.message || e).trim().split('\n').slice(-1)[0];
   }
 }
 
-const integration = { skip: seeded === null ? 'no python with the voyager package' : false };
+const integration = { skip: seeded === null ? seedProblem : false };
 
 test('resolves the real core and reports its bridge schema', integration, async () => {
   resetBridgeCache();

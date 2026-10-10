@@ -164,6 +164,10 @@ DSH 处于 Developer Preview，接口会变。插件声明它需要的 bridge `s
 | 真实 Agent 调用 tool | **LIVE VERIFIED** | DSH session log 中 4 条 `tool/call` 记录 |
 | sessionFlow bridge 真实执行 | **LIVE VERIFIED** | 返回真实索引数据（266 sessions / 150,089 events / 8 providers） |
 | 跨 Agent 上下文检索 | **LIVE VERIFIED** | 返回的 WorkThread 成员横跨 `claude` 与 `zcode`；搜索命中横跨 `zcode`/`claude`/`grok` |
+| 用续接上下文接着别的 Agent 干活 | **LIVE VERIFIED** | 六个合成场景、真实模型、真实索引 —— 见 [`docs/p8-live-verification.md`](docs/p8-live-verification.md) |
+| 交接记录故意与磁盘不符时的自主选择 | **LIVE VERIFIED** | 夹具里的会话声称做了工作，而 checkout 里并没有；Agent 核对了文件，拒绝照抄该说法 |
+| 同一仓库两条 active WorkThread | **LIVE VERIFIED** | Agent 列出两条、拒绝选更新的那条，并说明"最新"不是判决 |
+| Agent 触发 native resume | **NOT VERIFIED** | 没有场景真的拉起另一个 Agent 的会话；retained / `SOURCE_MISSING` 的会话被正确描述为只有上下文 |
 | `dsh plugin add <裸本地路径>` | **已知限制** | 裸路径会变成 pnpm 的 `link:` 依赖，而 DSH 配的 `nodeLinker: hoisted` 不创建 symlink，于是包里的 `dsh.bundle` 根本不会被读到。改用 `file:` 或 `github:` —— 两者都已在 Linux CI 上验证。见[疑难排查](#疑难排查) |
 
 Linux 冷启动 job 每次推送都会跑：
