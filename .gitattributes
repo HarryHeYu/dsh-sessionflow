@@ -1,0 +1,9 @@
+# Shell scripts must stay LF on every platform: a CRLF shebang line makes
+# `bash scripts/cold-start.sh` fail with a confusing "bad interpreter" error on
+# Windows checkouts, and this repository ships one that CI runs on Linux.
+*.sh text eol=lf
+
+# Workflow files are read from git by GitHub, but keeping them LF avoids
+# spurious diffs when edited from Windows.
+*.yml text eol=lf
+*.yaml text eol=lf
