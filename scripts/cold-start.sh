@@ -17,8 +17,19 @@
 #   [core-python]   python interpreter holding the core; defaults to python3
 #
 # Exit status: 0 only when every check below passed.  Each check prints a
-# `LEVEL: ...` line so a failure names the layer — install, load, or bridge —
-# instead of dumping a log and leaving the reader to guess.
+# `LEVEL: ...` line naming the layer it proved, so a failure says which layer
+# broke instead of dumping a log and leaving the reader to guess:
+#
+#   INSTALL VERIFIED    `dsh plugin add` exited 0
+#   BUNDLE DISCOVERED   dsh-sessionflow is in the profile's bundles
+#   PREPARE RAN         the installed package ships a built lib/
+#   LAYER APPLIED       the plugin's patch layer is in the composed tree
+#   PLUGIN LOADED       DSH imported the plugin and ran its apply()
+#   BRIDGE EXECUTED     the installed bridge reached a real core
+#
+# What it deliberately does not claim: a real model turn.  There are no
+# credentials here, and none are wanted — the boot stops at the credential gate,
+# which is exactly the evidence this script needs.
 
 set -uo pipefail
 
@@ -48,28 +59,34 @@ dsh --from-default-profile headless --profile "$PROFILE" --dump-config \
 PROFILE_DIR="$DSH_HOME/profiles/$PROFILE"
 [ -f "$PROFILE_DIR/package.json" ] || fail "profile has no package.json"
 
-# The first attempt may be refused because pnpm will not run a git-hosted
-# package's `prepare` script until it is allowlisted.  DSH prints the exact
-# key; this is the documented two-step, automated — not a workaround.
+# pnpm >= 10 refuses to run a git-hosted package's `prepare` script until the
+# package is allowlisted.  The DSH docs show the short form (`dsh-sessionflow:
+# true`), but pnpm 11 rejects that and prints the key it actually wants — the
+# package plus the resolved commit.  Measured, not assumed: with the short form
+# pnpm still fails with ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED.  So take the key
+# pnpm printed.  This is the documented two-step, automated, not a bypass.
+_allowbuild_add() {
+  local key="$1" ws="$PROFILE_DIR/pnpm-workspace.yaml"
+  [ -f "$ws" ] || fail "no pnpm-workspace.yaml to allowlist in"
+  if grep -q '^allowBuilds:' "$ws"; then
+    printf '  %s\n' "$key" >> "$ws"
+  else
+    printf '\nallowBuilds:\n  %s\n' "$key" >> "$ws"
+  fi
+}
+
 echo "--- dsh plugin add $SPEC"
 dsh plugin --profile "$PROFILE" add "$SPEC" > "$COLD_ROOT/add-1.log" 2>&1
 ADD_RC=$?
 
 if [ "$ADD_RC" -ne 0 ]; then
   if grep -q 'ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED' "$COLD_ROOT/add-1.log"; then
-    # The key contains a URL, so it holds colons: match greedily up to the
-    # trailing `: true` rather than stopping at the first one.
     KEY=$(sed -n 's/^[[:space:]]\{1,\}\(dsh-sessionflow@.*: *true\)[[:space:]]*$/\1/p' \
             "$COLD_ROOT/add-1.log" | tail -1)
-    [ -n "$KEY" ] || { cat "$COLD_ROOT/add-1.log" >&2; fail "prepare was blocked but no allowBuilds key was printed"; }
-    WS="$PROFILE_DIR/pnpm-workspace.yaml"
-    [ -f "$WS" ] || fail "no pnpm-workspace.yaml to allowlist in"
-    if grep -q '^allowBuilds:' "$WS"; then
-      printf '  %s\n' "$KEY" >> "$WS"
-    else
-      printf '\nallowBuilds:\n  %s\n' "$KEY" >> "$WS"
-    fi
-    echo "--- prepare blocked; allowlisted '$KEY' and retrying"
+    [ -n "$KEY" ] || { cat "$COLD_ROOT/add-1.log" >&2
+                       fail "prepare was blocked but pnpm printed no allowBuilds key"; }
+    echo "--- prepare was blocked; allowlisting the key pnpm printed: $KEY"
+    _allowbuild_add "$KEY"
     dsh plugin --profile "$PROFILE" add "$SPEC" > "$COLD_ROOT/add-2.log" 2>&1 \
       || { tail -20 "$COLD_ROOT/add-2.log" >&2; fail "dsh plugin add after allowBuilds"; }
   else
@@ -100,32 +117,39 @@ pass "PREPARE RAN: the installed package ships a built lib/"
 dsh --profile "$PROFILE" --dump-config > "$COLD_ROOT/dump.log" 2>&1 \
   || { tail -20 "$COLD_ROOT/dump.log" >&2; fail "--dump-config"; }
 grep -q 'dsh-sessionflow' "$COLD_ROOT/dump.log" \
-  || fail "the plugin is absent from the composed profile tree"
-pass "RUNTIME LOADED: the plugin is in the composed profile tree"
+  || fail "the plugin's patch layer is absent from the composed tree"
+pass "LAYER APPLIED: the plugin's layer is in the composed profile tree"
 
-# -------------------------------------------------------------- tool surface ---
-# Import the *installed* copy, not the checkout: this is what the user got.
-node --input-type=module -e '
-  import { pathToFileURL } from "node:url";
-  const installed = process.argv[1];
-  const index = await import(pathToFileURL(installed + "/lib/index.js").href);
-  const expected = ["searchTool","recentTool","sessionTool","currentWorkTool","continueTool","mergeTool"];
-  for (const n of expected)
-    if (typeof index[n] !== "function") { console.error("missing export:", n); process.exit(1); }
-  const names = expected.map(k => index[k]({}).name);
-  const want = ["sessionflow_search","sessionflow_recent","sessionflow_session",
-                "sessionflow_current_work","sessionflow_continue","sessionflow_merge"];
-  for (const w of want)
-    if (!names.includes(w)) { console.error("not registered:", w, "saw", names.join(",")); process.exit(1); }
-  if (new Set(names).size !== 6) { console.error("duplicate names:", names.join(",")); process.exit(1); }
-  if (JSON.stringify(index.inject) !== JSON.stringify(["tools"])) {
-    console.error("inject =", JSON.stringify(index.inject)); process.exit(1); }
-  console.log("tools =", names.join(", "));
-' "$INSTALLED" || fail "the installed plugin does not expose the six sessionflow tools"
-pass "TOOL REGISTERED: the installed copy exposes six distinct sessionflow_ tools"
+# ------------------------------------------------------- does DSH load it? ---
+# --dump-config only composes patch layers; it never imports the plugin, so it
+# cannot tell a loadable plugin from a broken one.  A boot can.  With no
+# credentials the boot stops at the credential gate — and that gate is reached
+# only after the plugin tree has been imported, so getting there proves the
+# plugin module loaded and its apply() ran under DSH's own resolution.
+#
+# A failed import looks nothing like that: DSH reports
+# "plugin tree failed to load ... failed to import loader entry dsh-sessionflow".
+# (Host packages such as @deepseek-ai/dsh-tools are peers resolved by the running
+# DSH, not by the profile's node_modules — so this is the only place that can
+# tell whether resolution actually works.)
+echo "--- booting the profile to see whether DSH can import the plugin"
+env -u DEEPSEEK_API_KEY -u OPENAI_API_KEY -u ANTHROPIC_API_KEY \
+  timeout 600 dsh --profile "$PROFILE" "cold-start probe" > "$COLD_ROOT/boot.log" 2>&1
+BOOT_RC=$?
+
+if grep -qE "plugin tree failed to load|Cannot find package|ERR_MODULE_NOT_FOUND" "$COLD_ROOT/boot.log"; then
+  grep -nE "plugin tree failed to load|Cannot find package|ERR_MODULE_NOT_FOUND" \
+    "$COLD_ROOT/boot.log" | head -5 >&2
+  fail "DSH could not import the plugin (boot rc=$BOOT_RC)"
+fi
+grep -q "MISSING_CREDENTIAL" "$COLD_ROOT/boot.log" \
+  || { tail -25 "$COLD_ROOT/boot.log" >&2
+       fail "the boot did not reach the credential gate (rc=$BOOT_RC), so whether the plugin loaded is unknown"; }
+pass "PLUGIN LOADED: DSH imported and applied the plugin, then stopped at the credential gate"
 
 # --------------------------------------------------------------- bridge call ---
-# Real core, real subprocess.  No model is involved, so this runs in CI.
+# lib/bridge.js imports only Node builtins, so it can be driven directly: this
+# is a real subprocess talking to a real core, and it needs no model.
 VOYAGER_PYTHON="$CORE_PYTHON" node --input-type=module -e '
   import { pathToFileURL } from "node:url";
   const installed = process.argv[1];

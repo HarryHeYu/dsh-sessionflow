@@ -196,6 +196,9 @@ pnpm 默认不允许 git 来源的包执行构建脚本。错误里会打印它�
 写进 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds`，再跑一次同样的 `add`。
 这一步**不能跳过**：插件是 TypeScript，`prepare` 负责编译 `lib/`。
 
+key 必须**原样照抄**，包括解析出的 commit。pnpm 11 下短名形式
+（`dsh-sessionflow: true`）**不够**，仍会报同一个错 —— 已对 pnpm 11.22.0 实测。
+
 **`add` 报 `declares no dsh.bundle`，且 `node_modules` 是空的。**
 你加的是**裸本地路径**。pnpm 会把它变成 `link:` 依赖，而 DSH 配的
 `nodeLinker: hoisted` 不创建 symlink，于是 profile 读不到包里的 `dsh.bundle`。

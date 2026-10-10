@@ -231,6 +231,10 @@ error prints the exact key — put it under `allowBuilds` in the profile's
 `pnpm-workspace.yaml` and run the same `add` again. The plugin cannot skip this:
 it ships TypeScript, and `prepare` is what compiles `lib/`.
 
+Use the key exactly as printed, including the resolved commit. With pnpm 11 the
+short form (`dsh-sessionflow: true`) is *not* enough — it still fails with the
+same error. Measured against pnpm 11.22.0.
+
 **`add` reported `declares no dsh.bundle`, and `node_modules` is empty.**
 You added a bare local path. pnpm turns that into a `link:` dependency, and with
 DSH's `nodeLinker: hoisted` no symlink is created, so the profile cannot read the
