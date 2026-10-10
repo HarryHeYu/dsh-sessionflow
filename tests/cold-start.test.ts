@@ -82,13 +82,14 @@ test('a missing core is reported as VOYAGER_NOT_FOUND, pointing at the repo', as
   delete process.env['VOYAGER_BIN'];
   delete process.env['VOYAGER_PYTHON'];
   // The candidate list falls back to bare `voyager` / `py` / `python` on PATH,
-  // so an empty PATH is the only way to isolate every source at once.
+  // so an empty PATH is the only way to isolate every source at once.  Nothing
+  // is *configured* here on purpose: a configured `voyagerBin` that fails is a
+  // different, stricter error (see bridge.test.ts).
   process.env['PATH'] = tmpRoot();
   mod.resetBridgeCache?.();
   try {
     await assert.rejects(
       () => mod.resolveVoyager({
-        voyagerBin: path.join(tmpRoot(), 'nope.exe'),
         python: path.join(tmpRoot(), 'nope-python.exe'),
       }),
       (e) => {

@@ -190,19 +190,39 @@ function run(cmd: VoyagerCommand, args: string[], opts: BridgeOptions,
   });
 }
 
-async function probe(cmd: VoyagerCommand, opts: BridgeOptions): Promise<boolean> {
+/**
+ * Prove one candidate works.  Returns `null` when it does, otherwise the reason
+ * it was rejected, so the caller can say *why* rather than "not found".
+ */
+async function probe(cmd: VoyagerCommand, opts: BridgeOptions): Promise<string | null> {
+  const shown = [cmd.command, ...cmd.prefixArgs].join(' ');
   try {
-    const { stdout, code } = await run(cmd, ['integration-info', '--json'],
+    const { stdout, stderr, code } = await run(cmd, ['integration-info', '--json'],
       { ...opts, timeoutMs: Math.max(opts.timeoutMs ?? PROBE_TIMEOUT_MS, PROBE_TIMEOUT_MS) });
-    if (code !== 0) return false;
+    if (code !== 0) {
+      const why = (stderr.trim().split(/\r?\n/).find((l) => l.trim().length > 0) ?? '').slice(0, 200);
+      return `\`${shown} integration-info\` exited ${code}${why ? `: ${why}` : ''}`;
+    }
     const info = JSON.parse(stdout.trim()) as IntegrationInfo;
     // A core that answers but is too old must NOT be selected: caching it would
     // pin the whole process to a binary every tool then rejects.
-    return typeof info.schema_version === 'number'
-      && info.schema_version >= REQUIRED_SCHEMA_VERSION;
-  } catch {
-    return false;
+    if (typeof info.schema_version !== 'number') {
+      return `\`${shown}\` answered without a schema_version`;
+    }
+    if (info.schema_version < REQUIRED_SCHEMA_VERSION) {
+      return `\`${shown}\` reports bridge schema ${info.schema_version}, ` +
+             `but this plugin needs ${REQUIRED_SCHEMA_VERSION}`;
+    }
+    return null;
+  } catch (e) {
+    return `\`${shown}\` could not be started or timed out: ` +
+           `${e instanceof Error ? e.message : String(e)}`;
   }
+}
+
+/** The operator explicitly named a core (plugin config, else `$VOYAGER_BIN`). */
+function configuredBin(opts: BridgeOptions): string | undefined {
+  return opts.voyagerBin ?? process.env['VOYAGER_BIN'];
 }
 
 /**
@@ -213,12 +233,42 @@ async function probe(cmd: VoyagerCommand, opts: BridgeOptions): Promise<boolean>
  * candidate is proven with the version probe, so a shim that starts but cannot
  * answer is skipped rather than used — which matters on a machine with several
  * Python installs, where only one of them has the package.
+ *
+ * A **configured** executable is authoritative: if it fails the probe this
+ * throws instead of falling through to a PATH candidate.  The fallback is not
+ * harmless — `voyagerArgs` carries the index (`--db`), so answering from
+ * another install means reporting a different set of sessions as *this*
+ * project's history, which is worse than an error.  Unset `voyagerBin` to opt
+ * back into PATH discovery.
  */
 export async function resolveVoyager(opts: BridgeOptions = {}): Promise<VoyagerCommand> {
   const key = cacheKey(opts);
   if (cachedCommand && cachedKey === key) return cachedCommand;
-  for (const cmd of candidates(opts)) {
-    if (await probe(cmd, opts)) {
+
+  const bin = configuredBin(opts);
+  const [first, ...rest] = candidates(opts);
+  if (first === undefined) {
+    // `candidates()` always returns the PATH chain, so this is unreachable —
+    // it exists so the type checker can see `first` is defined.
+    throw new VoyagerError('VOYAGER_NOT_FOUND', 'no candidate command to probe');
+  }
+  const firstReason = await probe(first, opts);
+  if (firstReason === null) {
+    cachedCommand = first;
+    cachedKey = key;
+    return first;
+  }
+  if (bin) {
+    throw new VoyagerError('VOYAGER_NOT_FOUND',
+      `the configured sessionFlow/Voyager executable does not work: ${firstReason}`,
+      `Refusing to fall back to another \`voyager\` on PATH: it may index ` +
+      `different sessions than the one you configured. Fix the path, or ` +
+      `remove \`voyagerBin\` (and \`VOYAGER_BIN\`) to let the plugin discover ` +
+      `the core from PATH.`);
+  }
+
+  for (const cmd of rest) {
+    if (await probe(cmd, opts) === null) {
       cachedCommand = cmd;
       cachedKey = key;
       return cmd;

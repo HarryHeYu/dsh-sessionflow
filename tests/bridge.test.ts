@@ -68,7 +68,7 @@ function stub(name: string, extra: BridgeOptions = {}): BridgeOptions {
 
 // --- mechanics --------------------------------------------------------------
 
-test('a missing core is reported with an actionable message', async () => {
+test('a missing core points at the source install, never at pipx', async () => {
   const saved = process.env['PATH'];
   process.env['PATH'] = '';
   delete process.env['VOYAGER_BIN'];
@@ -76,7 +76,7 @@ test('a missing core is reported with an actionable message', async () => {
   resetBridgeCache();
   try {
     await assert.rejects(
-      () => resolveVoyager({ voyagerBin: 'C:/nope/voyager.exe', python: 'C:/nope/python.exe' }),
+      () => resolveVoyager({ python: 'C:/nope/python.exe' }),
       (e: unknown) =>
         e instanceof VoyagerError &&
         e.code === 'VOYAGER_NOT_FOUND' &&
@@ -85,6 +85,62 @@ test('a missing core is reported with an actionable message', async () => {
         // the wrong project.
         /github\.com\/HarryHeYu\/sessionFlow/.test(e.message) &&
         !/pipx/.test(e.message),
+    );
+  } finally {
+    if (saved !== undefined) process.env['PATH'] = saved;
+    resetBridgeCache();
+  }
+});
+
+test('a configured core that fails is named, and is not silently replaced', async () => {
+  const saved = process.env['PATH'];
+  process.env['PATH'] = '';
+  delete process.env['VOYAGER_BIN'];
+  delete process.env['VOYAGER_PYTHON'];
+  resetBridgeCache();
+  const bin = process.execPath;
+  const stub = join(FIXTURES, 'stub-nocore.mjs');
+  try {
+    await assert.rejects(
+      () => resolveVoyager({ voyagerBin: bin, voyagerArgs: [stub] }),
+      (e: unknown) =>
+        e instanceof VoyagerError &&
+        e.code === 'VOYAGER_NOT_FOUND' &&
+        // Naming the operator's own command is the whole point: the generic
+        // "not installed" text would send them looking for a core they already
+        // configured.
+        e.message.includes(bin) &&
+        e.message.includes(stub) &&
+        /does not work/.test(e.message) &&
+        /exited 127/.test(e.message) &&
+        /configured core does not work/.test(e.message) &&
+        // ...and it must say that falling back is what it refused to do, so the
+        // operator knows the choice was deliberate and how to opt back in.
+        /Refusing to fall back/.test(e.detail ?? '') &&
+        /voyagerBin/.test(e.detail ?? ''),
+    );
+  } finally {
+    if (saved !== undefined) process.env['PATH'] = saved;
+    resetBridgeCache();
+  }
+});
+
+test('a PATH core is still used when nothing is configured', async () => {
+  // The same broken command, reached the other way: unconfigured, the plugin
+  // is free to discover the core, and the discovery failure is the generic
+  // one.  This is the contrast that makes the test above meaningful.
+  const saved = process.env['PATH'];
+  process.env['PATH'] = '';
+  delete process.env['VOYAGER_BIN'];
+  delete process.env['VOYAGER_PYTHON'];
+  resetBridgeCache();
+  try {
+    await assert.rejects(
+      () => resolveVoyager({ python: 'C:/nope/python.exe' }),
+      (e: unknown) =>
+        e instanceof VoyagerError &&
+        e.code === 'VOYAGER_NOT_FOUND' &&
+        !/Refusing to fall back/.test(e.detail ?? ''),
     );
   } finally {
     if (saved !== undefined) process.env['PATH'] = saved;
