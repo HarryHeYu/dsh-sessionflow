@@ -1,0 +1,171 @@
+name: cold-start
+
+# Cold-start verification: can a new user install this plugin on a machine that
+# has never seen it, and does the install actually load?
+#
+# This is deliberately separate from the unit tests: those prove the plugin's
+# own logic, this proves the *distribution path* — `dsh plugin add` against a
+# throwaway DSH_HOME, the prepare/allowBuilds gate, the composed profile tree,
+# and a real bridge call into a real core.  No model is called, so it runs on
+# every push without credentials.
+#
+# The host toolchain is pinned exactly (see HOST_* below): a floating DSH or
+# pnpm would make a green run unreproducible.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cold-start-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned so a run can be reproduced verbatim.  Bump these deliberately.
+  HOST_DSH: "@deepseek-ai/dsh@0.1.5-rc.3"
+  HOST_PNPM: "pnpm@11.22.0"
+  HOST_NODE: "22.22.2"
+  HOST_PYTHON: "3.13"
+
+jobs:
+  linux-cold-start:
+    name: linux cold-start (${{ matrix.install }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # `github` installs what a user gets from the repository; `file` is the
+        # documented local-checkout path.  They exercise different pnpm
+        # dependency kinds (git tarball vs file:), and only `github` can fail
+        # because of the prepare-script allowlist.
+        install: [github, file]
+    steps:
+      - name: Check out the plugin
+        uses: actions/checkout@v4
+        with:
+          path: plugin
+
+      - name: Check out the core
+        uses: actions/checkout@v4
+        with:
+          repository: HarryHeYu/sessionFlow
+          path: core
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.HOST_NODE }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.HOST_PYTHON }}
+
+      - name: Install the pinned host toolchain
+        run: |
+          npm install -g "$HOST_DSH" "$HOST_PNPM"
+          echo "--- pinned versions ---"
+          node --version
+          npm --version
+          pnpm --version
+          dsh --version
+
+      - name: Assert the machine is a clean slate
+        run: |
+          set -euo pipefail
+          # The whole point is that nothing is pre-installed.  If a runner image
+          # ever ships a `voyager`, this test would be lying, so refuse to run.
+          if command -v voyager >/dev/null 2>&1; then
+            echo "voyager is already on PATH — this runner is not a clean slate" >&2
+            exit 1
+          fi
+          if [ -e "$HOME/.dsh/profiles" ]; then
+            echo "~/.dsh/profiles already exists — not a clean slate" >&2
+            exit 1
+          fi
+          echo "clean slate: no voyager, no ~/.dsh/profiles"
+
+      - name: Install the core from source (the documented path)
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          # `pip install -e .` — the README's command.  The core declares zero
+          # required dependencies, so this is the minimal install a user gets.
+          python -m pip install -e ./core
+          echo "--- voyager --help ---"
+          voyager --help | head -5
+          echo "--- a fresh database works ---"
+          voyager stats --db "$RUNNER_TEMP/cold.db"
+          echo "--- the plugin can see the core ---"
+          voyager integration-info --json
+
+      - name: Build the plugin (local-checkout path only)
+        if: matrix.install == 'file'
+        working-directory: plugin
+        run: |
+          set -euo pipefail
+          # The README tells local users to build before adding.  The `github`
+          # job deliberately skips this so the prepare-script path is exercised.
+          npm ci
+          npm run build
+
+      - name: Run the cold-start checks
+        env:
+          COLD_ROOT: ${{ runner.temp }}/cold-${{ matrix.install }}
+        run: |
+          set -euo pipefail
+          SPEC="github:HarryHeYu/dsh-sessionflow"
+          if [ "${{ matrix.install }}" = "file" ]; then
+            SPEC="file:$GITHUB_WORKSPACE/plugin"
+          fi
+          echo "install spec: $SPEC"
+          bash plugin/scripts/cold-start.sh "$SPEC" "cold-${{ matrix.install }}" python
+
+      - name: Show what was installed
+        if: always()
+        env:
+          COLD_ROOT: ${{ runner.temp }}/cold-${{ matrix.install }}
+        run: |
+          set -uo pipefail
+          P="$COLD_ROOT/dshhome/profiles/cold-${{ matrix.install }}"
+          echo "--- profile dir ---"
+          ls -la "$P" 2>/dev/null || true
+          echo "--- pnpm-workspace.yaml ---"
+          cat "$P/pnpm-workspace.yaml" 2>/dev/null || true
+          echo "--- dependency kind ---"
+          node -e 'const j=require(process.argv[1]);console.log(JSON.stringify(j.dependencies??{},null,2))' \
+            "$P/package.json" 2>/dev/null || true
+          echo "--- installed plugin ---"
+          ls -la "$P/node_modules/dsh-sessionflow/lib" 2>/dev/null || true
+
+      - name: Clean up the scratch root
+        if: always()
+        env:
+          COLD_ROOT: ${{ runner.temp }}/cold-${{ matrix.install }}
+        run: rm -rf "$COLD_ROOT"
+
+  plugin-tests:
+    # The offline suite, on Linux: the bridge mechanics (BAD_JSON, TIMEOUT,
+    # CLI_FAILED, INCOMPATIBLE) and the six-tool surface, proven off Windows.
+    name: plugin tests on linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.HOST_NODE }}
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - run: npm test
+
+      - name: Pack (dry run — nothing is published)
+        run: npm pack --dry-run
