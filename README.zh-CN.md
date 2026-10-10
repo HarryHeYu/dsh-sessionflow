@@ -156,17 +156,27 @@ DSH 处于 Developer Preview，接口会变。插件声明它需要的 bridge `s
 | 六个 tool 用真实 `defineTool` 注册 | **PASS（unit）** | `tests/plugin.test.ts` |
 | DSH bundle discovery | **LIVE VERIFIED** | `dsh plugin --profile … install` 把 `dsh-sessionflow` 写进 `dsh.profile.bundles` |
 | DSH composition tree | **LIVE VERIFIED** | `dsh --profile … --dump-config` 显示 `- id: dsh-sessionflow` |
+| DSH 真的 import 并 apply 了插件 | **INSTALL VERIFIED（Linux CI）** | 启动能走到凭证门且无 import 报错；**`--dump-config` 单独证明不了这一点** —— 它从不 import 插件 |
+| 干净机器上的 `github:` 安装 | **INSTALL VERIFIED（Linux CI）** | `dsh plugin add github:HarryHeYu/dsh-sessionflow`，配合 pnpm 打印的 `allowBuilds` key |
+| 干净机器上的 `file:` 安装 | **INSTALL VERIFIED（Linux CI）** | `dsh plugin add file:<checkout>` |
 | 真实 Agent 能看到 tool 注册 | **LIVE VERIFIED** | 真实 DSH 回合的 request header 含全部六个 schema |
 | 自然语言自主选择 tool | **LIVE VERIFIED** | 只问"我之前这个项目做到哪了？"（未提任何 tool 名），Agent **第一个动作**就是 `sessionflow_current_work` |
 | 真实 Agent 调用 tool | **LIVE VERIFIED** | DSH session log 中 4 条 `tool/call` 记录 |
 | sessionFlow bridge 真实执行 | **LIVE VERIFIED** | 返回真实索引数据（266 sessions / 150,089 events / 8 providers） |
 | 跨 Agent 上下文检索 | **LIVE VERIFIED** | 返回的 WorkThread 成员横跨 `claude` 与 `zcode`；搜索命中横跨 `zcode`/`claude`/`grok` |
-| `dsh plugin add` 落地本地包链接 | **NOT VERIFIED** | pnpm 11.22.0 `hoisted` linker 没建链接；已知可用的第三方 bundle 表现相同 ⇒ 属环境问题 |
+| `dsh plugin add <裸本地路径>` | **已知限制** | 裸路径会变成 pnpm 的 `link:` 依赖，而 DSH 配的 `nodeLinker: hoisted` 不创建 symlink，于是包里的 `dsh.bundle` 根本不会被读到。改用 `file:` 或 `github:` —— 两者都已在 Linux CI 上验证。见[疑难排查](#疑难排查) |
+
+Linux 冷启动 job 每次推送都会跑：
+[`.github/workflows/cold-start.yml`](.github/workflows/cold-start.yml) 用
+`scripts/cold-start.sh` 在**一次性的 `DSH_HOME`** 里把两条安装路径各跑一遍，
+宿主工具链精确固定（dsh 0.1.5-rc.3、pnpm 11.22.0、Node 22.22.2、Python 3.13）。
+它不需要模型：启动会停在凭证门，而"能到那里"正是插件已加载的证据。
 
 完整记录与 tool 调用明细见 [`docs/live-verification.md`](docs/live-verification.md)。
 
 使用环境：`@deepseek-ai/dsh` 0.1.5-rc.3、`@deepseek-ai/cordis` 4.0.2、
-Node 22.22.2、Windows。
+Node 22.22.2。LIVE VERIFIED 那些行是在 Windows 上真实跑出来的；安装与加载
+（INSTALL VERIFIED）在 **Linux** 上另有独立的 CI 证据。
 
 ## 疑难排查
 

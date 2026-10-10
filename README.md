@@ -172,12 +172,22 @@ Stated at the level actually reached — nothing below is promoted.
 | Six tools register through the real `defineTool` | **PASS (unit)** | `tests/plugin.test.ts` |
 | DSH bundle discovery | **LIVE VERIFIED** | `dsh plugin --profile … install` added `dsh-sessionflow` to `dsh.profile.bundles` |
 | DSH composition tree | **LIVE VERIFIED** | `dsh --profile … --dump-config` shows `- id: dsh-sessionflow` |
+| Plugin module imported and applied by DSH | **INSTALL VERIFIED (Linux CI)** | the boot reaches the credential gate with no import error; `--dump-config` alone cannot prove this, it never imports the plugin |
+| `github:` install on a clean machine | **INSTALL VERIFIED (Linux CI)** | `dsh plugin add github:HarryHeYu/dsh-sessionflow`, with the `allowBuilds` key pnpm prints |
+| `file:` install on a clean machine | **INSTALL VERIFIED (Linux CI)** | `dsh plugin add file:<checkout>` |
 | Tool registration visible to a real agent | **LIVE VERIFIED** | all six schemas in the request header of a real DSH turn |
 | Natural-language autonomous tool selection | **LIVE VERIFIED** | asked "我之前这个项目做到哪了？" with no tool named; the agent's first action was `sessionflow_current_work` |
 | Real agent tool invocation | **LIVE VERIFIED** | 4 `tool/call` records in DSH's session log |
 | sessionFlow bridge execution | **LIVE VERIFIED** | results carried real index data (266 sessions / 150,089 events / 8 providers) |
 | Cross-agent context retrieval | **LIVE VERIFIED** | the returned WorkThread's members span `claude` and `zcode`; search hits span `zcode`/`claude`/`grok` |
-| `dsh plugin add` materialises a local package link | **NOT VERIFIED** | pnpm 11.22.0 `hoisted` linker did not create the link; a known-good third-party bundle failed identically, so this is environmental |
+| `dsh plugin add <bare local path>` | **DOCUMENTED LIMITATION** | a bare path becomes a pnpm `link:` dependency, and DSH's `nodeLinker: hoisted` does not create the symlink, so the package's `dsh.bundle` is never read. Use `file:` or `github:` — both verified on Linux CI. See [Troubleshooting](#troubleshooting) |
+
+The Linux cold-start jobs run on every push:
+[`.github/workflows/cold-start.yml`](.github/workflows/cold-start.yml) drives
+`scripts/cold-start.sh` over both install paths in a throwaway `DSH_HOME`, with
+the host toolchain pinned (dsh 0.1.5-rc.3, pnpm 11.22.0, Node 22.22.2, Python
+3.13).  They need no model: the boot stops at the credential gate, which is the
+evidence that the plugin loaded.
 
 Full transcript and tool-call records: [`docs/live-verification.md`](docs/live-verification.md).
 
