@@ -151,21 +151,43 @@ jobs:
   plugin-tests:
     # The offline suite, on Linux: the bridge mechanics (BAD_JSON, TIMEOUT,
     # CLI_FAILED, INCOMPATIBLE) and the six-tool surface, proven off Windows.
+    # The core is installed so the `integration`-guarded tests actually run
+    # here rather than skipping — otherwise this job would silently prove less
+    # on Linux than it does on a developer's machine.
     name: plugin tests on linux
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: plugin
+
+      - name: Check out the core
+        uses: actions/checkout@v4
+        with:
+          repository: HarryHeYu/sessionFlow
+          path: core
 
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.HOST_NODE }}
 
-      - run: npm ci
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.HOST_PYTHON }}
 
-      - run: npm run build
+      - name: Install the core from source
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ./core
 
-      - run: npm test
+      - name: Build and test
+        working-directory: plugin
+        run: |
+          npm ci
+          npm run build
+          npm test
 
       - name: Pack (dry run — nothing is published)
+        working-directory: plugin
         run: npm pack --dry-run

@@ -215,7 +215,7 @@ if (python) {
 
 const integration = { skip: seeded === null ? 'no python with the voyager package' : false };
 
-test('resolves the real core and reports its bridge schema', async () => {
+test('resolves the real core and reports its bridge schema', integration, async () => {
   resetBridgeCache();
   const info = await integrationInfo();
   assert.ok(info.schema_version >= 1, 'schema_version is a number');
@@ -225,7 +225,7 @@ test('resolves the real core and reports its bridge schema', async () => {
   }
 });
 
-test('runJson returns parsed JSON from a real subcommand', async () => {
+test('runJson returns parsed JSON from a real subcommand', integration, async () => {
   resetBridgeCache();
   const info = await runJson<{ schema_version: number }>(['integration-info']);
   assert.ok(info.schema_version >= 1);
@@ -284,7 +284,7 @@ test('continue_context by session ref returns the compiled bundle', integration,
   assert.ok((r.bundle ?? '').includes('evaluation'));
 });
 
-test('continue_context with no sessions is a clear error, not a crash', async () => {
+test('continue_context with no sessions is a clear error, not a crash', integration, async () => {
   resetBridgeCache();
   const empty = join(makeTmpDir('dsh-sessionflow-empty-'), 'index.db');
   const r = await callOp<{ error?: string }>(
