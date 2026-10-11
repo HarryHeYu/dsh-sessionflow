@@ -118,6 +118,20 @@ dsh --profile web --dump-config | grep dsh-sessionflow
 六个 tool 统一用 `sessionflow_*` 前缀，不存在第二套 `voyager_*` 名称。
 每个 tool 返回结构化数据 + 适合模型消费的渲染。
 
+### 同一仓库有多条 WorkThread 时
+
+一个项目可以同时有多条 active WorkThread（两条工作线，或者一条被关闭后又重开的）。
+这些 tool **不会**替你选：
+
+* `sessionflow_current_work` 会返回 `thread_ambiguous: true`，在 `thread_candidates`
+  里列出全部候选（`id` / `title` / `updated_at` / `goal`），同时仍把最近活动的那条放在
+  `thread` 里 —— 并由 `thread_default_reason` 标明这是**默认**，因为活动时间不是你的决定；
+* `sessionflow_continue` 与 `sessionflow_merge` 接受 `thread_id`，Agent 可以把你选的那条传进去；
+* 只有一条线程时不会多出任何字段；`thread_id` 不存在时会被如实报告，而不是悄悄换成别的线程。
+
+让 Agent 问你要哪条，或者你直接给出 id。DSH 之外同理：`voyager continue` / `voyager switch`
+会打印候选并拒绝猜测，`voyager status` 报 `AMBIGUOUS` 而不是 `NO_THREAD`。
+
 ## 配置
 
 插件按顺序寻找核心：配置的 `voyagerBin` → `PATH` 上的 `voyager`（Windows 上还有
@@ -167,7 +181,11 @@ DSH 处于 Developer Preview，接口会变。插件声明它需要的 bridge `s
 | 用续接上下文接着别的 Agent 干活 | **LIVE VERIFIED** | 六个合成场景、真实模型、真实索引 —— 见 [`docs/p8-live-verification.md`](docs/p8-live-verification.md) |
 | 交接记录故意与磁盘不符时的自主选择 | **LIVE VERIFIED** | 夹具里的会话声称做了工作，而 checkout 里并没有；Agent 核对了文件，拒绝照抄该说法 |
 | 同一仓库两条 active WorkThread | **LIVE VERIFIED** | Agent 列出两条、拒绝选更新的那条，并说明"最新"不是判决 |
-| Agent 触发 native resume | **NOT VERIFIED** | 没有场景真的拉起另一个 Agent 的会话；retained / `SOURCE_MISSING` 的会话被正确描述为只有上下文 |
+| 从**真实 Provider 会话文件**续接（discovery → 解析 → 索引 → Agent） | **LIVE VERIFIED** | 3 个真实 Codex rollout + 3 个真实 Claude Code 会话复制进隔离 HOME，由真实适配器扫描，再由真实 Agent 续接 —— 见 [`docs/p9-live-verification.md`](https://github.com/HarryHeYu/dsh-sessionflow/blob/main/docs/p9-live-verification.md) |
+| `sessionflow_merge` 可调用且语义正确 | **LIVE VERIFIED** | 集成测试跑真实 `voyager merge --json`（两个来源、provenance、冲突保留、结果确定），并有真实回合按 id 调用它 |
+| `sessionflow_merge` 在**未被点名**时被选中 | **NOT VERIFIED** | 自主回合用 `current_work` + `recent` + `search` + `session` 答对了，但从未调用 `merge` |
+| 多线程歧义被如实报告而非猜测 | **LIVE VERIFIED** | 同一仓库两条 active WorkThread：Agent 列出双方、拒绝取更新的那条，并说明"最新"不是决定 |
+| Agent 触发 native resume | **NOT VERIFIED** | 没有场景真的拉起另一个 Agent 的会话；retained / `SOURCE_MISSING` 的会话被正确描述为只有上下文。`claude`/`codex` 虽已安装，但真实 resume 会消耗用户凭证并在其真实环境里新建会话 |
 | `dsh plugin add <裸本地路径>` | **已知限制** | 裸路径会变成 pnpm 的 `link:` 依赖，而 DSH 配的 `nodeLinker: hoisted` 不创建 symlink，于是包里的 `dsh.bundle` 根本不会被读到。改用 `file:` 或 `github:` —— 两者都已在 Linux CI 上验证。见[疑难排查](#疑难排查) |
 
 Linux 冷启动 job 每次推送都会跑：

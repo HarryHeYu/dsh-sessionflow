@@ -130,6 +130,27 @@ see [Troubleshooting](#troubleshooting).
 All six share the `sessionflow_*` prefix — there is no second `voyager_*` set.
 Every tool returns structured data and a model-readable rendering.
 
+### When a repo has more than one WorkThread
+
+A project can carry several active WorkThreads at once (two lines of work, or a
+thread that was reopened after being closed). The tools will **not** choose
+between them for you:
+
+* `sessionflow_current_work` answers with `thread_ambiguous: true`, lists every
+  candidate under `thread_candidates` (`id`, `title`, `updated_at`, `goal`), and
+  still returns the most recently active one as `thread` — labelled by
+  `thread_default_reason` as a default, because activity time is not a decision
+  you made;
+* `sessionflow_continue` and `sessionflow_merge` accept `thread_id`, so the
+  agent can pass the one you pick;
+* with exactly one thread nothing extra is added, and a `thread_id` that does
+  not exist is reported rather than quietly replaced by another thread.
+
+Ask the agent which thread you mean, or name the id yourself. The same rule
+holds outside DSH: `voyager continue` / `voyager switch` refuse with the
+candidate list instead of guessing, and `voyager status` reports `AMBIGUOUS`
+rather than `NO_THREAD`.
+
 ## Configuration
 
 The plugin finds the core by trying, in order: a configured `voyagerBin`, then
@@ -180,10 +201,14 @@ Stated at the level actually reached — nothing below is promoted.
 | Real agent tool invocation | **LIVE VERIFIED** | 4 `tool/call` records in DSH's session log |
 | sessionFlow bridge execution | **LIVE VERIFIED** | results carried real index data (266 sessions / 150,089 events / 8 providers) |
 | Cross-agent context retrieval | **LIVE VERIFIED** | the returned WorkThread's members span `claude` and `zcode`; search hits span `zcode`/`claude`/`grok` |
-| Continuation context used to pick up another agent's work | **LIVE VERIFIED** | six synthetic scenarios, real model, real index — see [`docs/p8-live-verification.md`](docs/p8-live-verification.md) |
+| Continuation context used to pick up another agent's work | **LIVE VERIFIED** | six synthetic scenarios, real model, real index — see [`docs/p8-live-verification.md`](https://github.com/HarryHeYu/dsh-sessionflow/blob/main/docs/p8-live-verification.md) |
 | Autonomous selection with a deliberately misleading handoff | **LIVE VERIFIED** | the fixture's sessions claim work the checkout does not contain; the agent checked the files and refused to repeat the claim |
 | Ambiguous repo: two active WorkThreads | **LIVE VERIFIED** | the agent listed both, refused to pick the newer one, and said why "newest" is not a verdict |
-| Native resume by an agent | **NOT VERIFIED** | no scenario launched another agent's session; retained/`SOURCE_MISSING` sessions were correctly described as context-only |
+| Continuation from **real provider session files** (discovery → parse → index → agent) | **LIVE VERIFIED** | 3 real Codex rollouts + 3 real Claude Code sessions copied into an isolated HOME, scanned by the real adapters, then continued by a real agent — see [`docs/p9-live-verification.md`](https://github.com/HarryHeYu/dsh-sessionflow/blob/main/docs/p9-live-verification.md) |
+| `sessionflow_merge` callable and semantically correct | **LIVE VERIFIED** | real `voyager merge --json` in the integration suite (both sources, provenance, conflict kept, deterministic), and a live turn that called it with both ids |
+| `sessionflow_merge` chosen *without being named* | **NOT VERIFIED** | the autonomous turn answered correctly via `current_work` + `recent` + `search` + `session` and never called `merge` |
+| Multi-thread ambiguity handled, not guessed | **LIVE VERIFIED** | two active WorkThreads in one repo: the agent listed both, refused to take the newer one, and said recency is not a decision |
+| Native resume by an agent | **NOT VERIFIED** | no scenario launched another agent's session; retained/`SOURCE_MISSING` sessions were correctly described as context-only. `claude`/`codex` are installed, but a real resume would spend the user's credentials and create a session in their real environment |
 | `dsh plugin add <bare local path>` | **DOCUMENTED LIMITATION** | a bare path becomes a pnpm `link:` dependency, and DSH's `nodeLinker: hoisted` does not create the symlink, so the package's `dsh.bundle` is never read. Use `file:` or `github:` — both verified on Linux CI. See [Troubleshooting](#troubleshooting) |
 
 The Linux cold-start jobs run on every push:
