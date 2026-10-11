@@ -8,6 +8,23 @@ interface CurrentWork {
   thread?: { id: string; title: string | null; repo_root: string | null;
              status: string; goal: string | null; members: number | null;
              updated_at: number | null };
+  /**
+   * Present only when the repo has more than one active WorkThread.  `thread`
+   * is then the most recently active candidate — a *default*, not a choice the
+   * user made — and every candidate is listed so the caller can ask.
+   */
+  thread_ambiguous?: boolean;
+  thread_candidates?: Array<{ id: string; title: string | null;
+                              updated_at: number | null;
+                              goal: string | null;
+                              repo_root: string | null }>;
+  candidates_truncated?: boolean;
+  /** Why `thread` was picked, phrased so it cannot be mistaken for intent. */
+  thread_default_reason?: string;
+  /** Set when the caller named a `thread_id`. */
+  thread_requested?: string;
+  thread_not_found?: boolean;
+  thread_out_of_scope?: boolean;
   members?: Array<{ id: string; provider: string; title: string | null;
                     updated_at: number | null; source_state: string | null }>;
   lease?: { held: boolean; expired: boolean; why: string | null;
