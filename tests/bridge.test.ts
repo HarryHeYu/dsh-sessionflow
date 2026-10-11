@@ -271,27 +271,98 @@ st.close()
 print("seeded")
 `;
 
+/**
+ * A second index for the six-tool contract: two sessions in one repo that are
+ * not yet in any WorkThread (so `merge` has to create one), and two active
+ * WorkThreads in another repo (so `current_work` has to report the ambiguity).
+ * Timestamps are relative to now, because `recent` is a look-back window and
+ * epoch-1970 fixtures would fall outside it.
+ */
+const SEED_TWO = `
+import sys, time
+from pathlib import Path
+from voyager.store import Store
+from voyager.model import new_session, new_event
+db = Path(sys.argv[1])
+src = db.parent / "s2.jsonl"
+src.write_text("{}", encoding="utf-8")
+st = Store(db)
+now = time.time()
+
+def put(sid, provider, repo, title, ts, text):
+    s = new_session(id=sid, provider=provider, native_session_id=sid.split(":")[-1],
+                    title=title, started_at=ts, updated_at=ts + 5,
+                    cwd=repo, repo_root=repo, message_count=1, can_resume=True,
+                    metadata={}, raw_metadata={})
+    st.replace_session(s, [new_event(sid=sid, ts=ts, seq=0, kind="user",
+                                     content=text)], provider, src)
+
+put("codex:m1", "codex", "E:/proj/p93", "parser work", now - 4000,
+    "implement the parser for the config file")
+put("claude:m2", "claude", "E:/proj/p93", "parser review", now - 3000,
+    "reviewed the parser: the boundary check is off by one")
+
+for sid, provider, title, ts, text in (
+        ("codex:a1", "codex", "Work A", now - 2000, "work on A"),
+        ("claude:a2", "claude", "Work B", now - 1000, "work on B")):
+    put(sid, provider, "E:/proj/ambig93", title, ts, text)
+    tid = st.thread_create(repo_root="E:/proj/ambig93", title=title, goal=title)
+    st.thread_attach(tid, sid)
+    st.con.execute("UPDATE threads SET updated_at=? WHERE id=?", (ts, tid))
+    st.con.commit()
+st.close()
+print("seeded")
+`;
+
 const python = await findPython();
-let seeded: string | null = null;
+
+// A test must not scan the machine it runs on.  The core's freshness step
+// (`_ensure_fresh`) runs a real incremental scan of every provider's session
+// directory, which on a developer's machine means reading their actual Codex
+// and Claude history — slow, and not this suite's business.  `merge` is a
+// subcommand, so it takes that path; `VOYAGER_NO_SYNC` is the documented switch
+// for exactly this (CLI --help and cli.py both say "tests, offline
+// inspection").  Production never sets it, so nothing here weakens what ships.
+const hadNoSync = process.env['VOYAGER_NO_SYNC'];
+process.env['VOYAGER_NO_SYNC'] = '1';
+after(() => {
+  if (hadNoSync === undefined) delete process.env['VOYAGER_NO_SYNC'];
+  else process.env['VOYAGER_NO_SYNC'] = hadNoSync;
+});
 // The two ways this can fail mean different things, and one of them is a bug in
 // the harness rather than a missing dependency: an interpreter that has the
 // package but cannot seed the index must not be reported as "no python with the
 // voyager package", or the integration tests skip silently forever.
 let seedProblem = 'no python with the voyager package';
-if (python) {
-  const db = join(makeTmpDir('dsh-sessionflow-'), 'index.db');
+
+async function seedIndex(prefix: string, script: string): Promise<string | null> {
+  if (!python) return null;
+  const db = join(makeTmpDir(prefix), 'index.db');
   try {
-    await execHermetic(python, ['-c', SEED, db]);
-    seeded = db;
+    await execHermetic(python, ['-c', script, db]);
+    return db;
   } catch (e) {
-    seeded = null;
     const detail = (e as { stderr?: string; message?: string });
     seedProblem = `${python} has the package, but seeding the index failed: ` +
       String(detail.stderr || detail.message || e).trim().split('\n').slice(-1)[0];
+    return null;
   }
 }
 
+const seeded = await seedIndex('dsh-sessionflow-', SEED);
 const integration = { skip: seeded === null ? seedProblem : false };
+
+/**
+ * Point the bridge at one seeded index the way an operator would.
+ *
+ * `api` ops take a `db` parameter, but a CLI subcommand like `merge` does not —
+ * the index rides in `voyagerArgs`, which is also what makes P8's "a configured
+ * core is authoritative" rule matter here.
+ */
+function coreFor(db: string): BridgeOptions {
+  return { voyagerBin: python ?? 'python',
+           voyagerArgs: ['-m', 'voyager.cli', '--db', db] };
+}
 
 test('resolves the real core and reports its bridge schema', integration, async () => {
   resetBridgeCache();
@@ -368,4 +439,112 @@ test('continue_context with no sessions is a clear error, not a crash', integrat
   const r = await callOp<{ error?: string }>(
     'continue_context', { db: empty });
   assert.match(r.error ?? '', /no sessions/);
+});
+
+// --- P9.3: the remaining tool contracts, against a real core -----------------
+//
+// `search`, `current_work` and `continue_context` are covered above.  These
+// close the gap on `recent`, `session` and `merge` — the last of which was
+// asserted for argument forwarding but never actually run against a core.
+
+const seededTwo = await seedIndex('dsh-sessionflow-two-', SEED_TWO);
+const integrationTwo = { skip: seededTwo === null ? seedProblem : false };
+
+test('recent returns the index overview for the repo', integrationTwo, async () => {
+  resetBridgeCache();
+  const ov = await callOp<{
+    stats: { sessions: number; by_provider: Record<string, number> };
+    recent_sessions: Array<{ id: string }>;
+  }>('overview', { repo: 'E:/proj/p93', hours: 24, limit: 20, db: seededTwo });
+  assert.equal(ov.stats.sessions, 4);
+  assert.deepEqual(Object.keys(ov.stats.by_provider).sort(), ['claude', 'codex']);
+  const ids = ov.recent_sessions.map((s) => s.id).sort();
+  assert.deepEqual(ids, ['claude:m2', 'codex:m1']);
+});
+
+test('recent on a repo with no history is empty, not an error', integrationTwo, async () => {
+  resetBridgeCache();
+  const ov = await callOp<{ recent_sessions: unknown[] }>(
+    'overview', { repo: 'Z:/nothing/here', hours: 24, limit: 20, db: seededTwo });
+  assert.deepEqual(ov.recent_sessions, []);
+});
+
+test('session returns one session as a bundle', integrationTwo, async () => {
+  resetBridgeCache();
+  // `bundle_preview` answers with the compiled bundle; the scope it used is
+  // echoed by `continue_context`, not here.
+  const r = await callOp<{ bundle?: string; estimated_tokens?: number }>(
+    'bundle_preview', { session_refs: ['codex:m1'], db: seededTwo });
+  assert.ok((r.bundle ?? '').includes('parser'));
+  assert.ok((r.estimated_tokens ?? 0) > 0);
+});
+
+test('session for an unknown id is a clear error, not a crash', integrationTwo, async () => {
+  resetBridgeCache();
+  const r = await callOp<{ error?: string; bundle?: string }>(
+    'bundle_preview', { session_refs: ['codex:no-such-session-xyz'], db: seededTwo });
+  assert.match(r.error ?? '', /session not found/);
+  assert.equal(r.bundle, undefined);
+});
+
+test('merge is callable and synthesizes both sessions', integrationTwo, async () => {
+  resetBridgeCache();
+  const r = await runJson<{
+    action: string; thread_id: string | null; context: string;
+    member_count: number | null; error: string | null;
+  }>(['merge', 'codex:m1', 'claude:m2',
+      '--goal', 'finish the parser boundary check',
+      '--thread-title', 'parser work'], coreFor(seededTwo));
+  assert.equal(r.error, null);
+  assert.equal(r.member_count, 2);
+  assert.ok(r.thread_id, 'merge must persist a WorkThread');
+  // both sources survive into the synthesized context, with provenance
+  assert.ok(r.context.includes('codex:m1'), 'codex source missing');
+  assert.ok(r.context.includes('claude:m2'), 'claude source missing');
+  assert.ok(r.context.includes('off by one'), 'the review finding was dropped');
+});
+
+test('merge output is stable for the same input', integrationTwo, async () => {
+  resetBridgeCache();
+  const args = ['merge', 'codex:m1', 'claude:m2', '--goal', 'g', '--thread-title', 't'];
+  const a = await runJson<{ context: string; thread_id: string | null }>(args, coreFor(seededTwo));
+  const b = await runJson<{ context: string; thread_id: string | null }>(args, coreFor(seededTwo));
+  assert.equal(a.thread_id, b.thread_id, 're-merging the same members must not fork a thread');
+  assert.equal(a.context, b.context, 'the synthesized context must be deterministic');
+});
+
+test('merge rejects an unknown session instead of merging what it found', integrationTwo, async () => {
+  resetBridgeCache();
+  let failed = false;
+  try {
+    const r = await runJson<{ error?: string | null; member_count?: number | null }>(
+      ['merge', 'codex:m1', 'codex:definitely-not-a-session'],
+      coreFor(seededTwo));
+    failed = Boolean(r.error) || r.member_count !== 2;
+  } catch {
+    failed = true;
+  }
+  assert.ok(failed, 'a merge naming a session that does not exist must not silently succeed');
+});
+
+test('current_work passes the ambiguity fields through', integrationTwo, async () => {
+  resetBridgeCache();
+  const r = await callOp<{
+    thread_ambiguous?: boolean;
+    thread_candidates?: Array<{ id: string; title: string }>;
+    thread_default_reason?: string;
+    thread?: { title: string };
+  }>('current_work', { repo: 'E:/proj/ambig93', db: seededTwo });
+  assert.equal(r.thread_ambiguous, true, 'two active threads must be reported as ambiguous');
+  assert.deepEqual((r.thread_candidates ?? []).map((c) => c.title), ['Work B', 'Work A']);
+  assert.equal(r.thread?.title, 'Work B', 'the default is the most recently active');
+  assert.match(r.thread_default_reason ?? '', /not a choice/);
+});
+
+test('current_work stays quiet when a repo has exactly one thread', integrationTwo, async () => {
+  resetBridgeCache();
+  const r = await callOp<{ thread_ambiguous?: boolean; thread_candidates?: unknown[] }>(
+    'current_work', { repo: 'E:/proj/p93', db: seededTwo });
+  assert.equal(r.thread_ambiguous, undefined);
+  assert.equal(r.thread_candidates, undefined);
 });
