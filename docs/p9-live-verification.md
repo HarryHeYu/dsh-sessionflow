@@ -52,6 +52,23 @@ unambiguously, repo attribution matches the work repo, the source is
 test run, the boundary issue, the explicit "NOT implemented" note), user-channel
 records carry a structural origin, and FTS search reaches both sessions.
 
+### Fixture inventory
+
+| | |
+|---|---|
+| isolated HOME | `E:\sessionflow-scratch\p9\p92\home` |
+| real files | 3 × `rollout-*.jsonl` (Codex) + 3 × `<uuid>.jsonl` (Claude Code) |
+| continuation repo | `...\p92\work` — `calc.py` + `tests/test_calc.py` |
+| continuation sessions | `codex:a1b2c3d4-0000-1111-2222-333344445555`, `claude:p92-claude-1` |
+| merge repo | `...\p92\mergework` — `parser.py` + `tests/test_parser.py` |
+| merge sessions | `codex:b2c3d4e5-0000-1111-2222-333344445555`, `claude:p93-claude-1` |
+| index | `...\p92\index3.db` (8 sessions), `...\p92\index4.db` (10, adds the merge pair) |
+
+The WorkThread the continuation turn used, `thr_d153900c2a`, was created with
+`voyager merge` — the documented way to get one from sessions, since the plugin
+has no thread-create tool.  Nothing was injected into the index directly: both
+scenarios are `.jsonl` files read by the real adapters.
+
 ### An isolation finding worth keeping
 
 Redirecting **HOME alone is not enough to isolate a scan**.  The first run was
