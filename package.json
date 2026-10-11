@@ -1,6 +1,6 @@
 {
   "name": "dsh-sessionflow",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Cross-agent session continuity for DeepSeek Harness. Continue work from Codex, Claude Code, Grok, ZCode and other coding agents directly inside DSH.",
   "type": "module",
   "main": "lib/index.js",
@@ -17,6 +17,7 @@
     "cordis.patch.yml",
     "README.md",
     "README.zh-CN.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "license": "MIT",
