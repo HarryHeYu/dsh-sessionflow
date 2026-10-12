@@ -1,9 +1,22 @@
-# sessionFlow for DeepSeek Harness
+# dsh-sessionflow
 
-**Cross-agent session continuity for DeepSeek Harness.**
+[![cold-start](https://github.com/HarryHeYu/dsh-sessionflow/actions/workflows/cold-start.yml/badge.svg)](https://github.com/HarryHeYu/dsh-sessionflow/actions/workflows/cold-start.yml)
+[![release](https://img.shields.io/github/v/release/HarryHeYu/dsh-sessionflow)](https://github.com/HarryHeYu/dsh-sessionflow/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/HarryHeYu/dsh-sessionflow/blob/main/LICENSE)
 
-Continue work from Codex, Claude Code, Grok, ZCode and other coding agents
-directly inside DSH.
+**Continue work across AI coding agents — directly inside DeepSeek Harness.**
+
+Search, recover context, and continue work from Codex, Claude Code, and other
+supported agents using [sessionFlow](https://github.com/HarryHeYu/sessionFlow).
+
+|  |  |
+|---|---|
+| **What it is** | A thin DSH plugin that exposes the sessionFlow continuity layer as six `sessionflow_*` tools. |
+| **Why use it** | Work started in Codex, Claude Code, Grok or ZCode does not have to stop at the agent boundary — pick it back up inside DSH with the goal, files, commands and open items intact. |
+| **Install** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` — [details](#install). Needs a working model provider **and** the sessionFlow core. |
+| **Try it** | Ask in plain language: *"Continue the work I was doing in Claude Code on this repo."* Full walkthrough: [5-minute Quick Start](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md). |
+| **Current release** | [v1.1.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.1.0) · DSH 0.1.5-rc.3 · Node ≥ 22.19 · bridge schema 1 |
+| **Known limitation** | Native resume by an agent is **not verified** — see [verification status](#verification-status) |
 
 Not "yet another session manager" — sessionFlow's continuity layer, exposed to
 DSH as six tools.
@@ -176,7 +189,7 @@ an empty result.
 
 | Plugin | DSH | sessionFlow bridge schema | Status |
 |---|---|---|---|
-| 0.1.0 | 0.1.5-rc.3 | 1 | tested |
+| 1.1.0 | 0.1.5-rc.3 | 1 | tested |
 
 DSH is in Developer Preview and does move. The plugin declares the bridge
 `schema_version` it needs and fails clearly against an older core; it does not
@@ -306,7 +319,7 @@ If it is absent, the bundle was not discovered — see the two entries above.
 ```sh
 npm install
 npm run build     # tsc -> lib/
-npm test          # build, then node --test (bridge mechanics + live core)
+npm test          # build, then node --test — 40 tests (bridge mechanics + live core)
 ```
 
 `tests/bridge.test.ts` covers resolution, timeouts, malformed JSON, non-zero

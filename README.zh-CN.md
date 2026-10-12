@@ -1,8 +1,22 @@
-# sessionFlow for DeepSeek Harness
+# dsh-sessionflow
 
-**Cross-agent session continuity for DeepSeek Harness.**
+[![cold-start](https://github.com/HarryHeYu/dsh-sessionflow/actions/workflows/cold-start.yml/badge.svg)](https://github.com/HarryHeYu/dsh-sessionflow/actions/workflows/cold-start.yml)
+[![release](https://img.shields.io/github/v/release/HarryHeYu/dsh-sessionflow)](https://github.com/HarryHeYu/dsh-sessionflow/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/HarryHeYu/dsh-sessionflow/blob/main/LICENSE)
 
-在 DeepSeek Harness 里直接继续你在 Codex、Claude Code、Grok、ZCode 等编码 Agent 中做的工作。
+**在 DeepSeek Harness 里，跨 AI 编码 Agent 继续你的工作。**
+
+用 [sessionFlow](https://github.com/HarryHeYu/sessionFlow) 检索历史、恢复上下文，并继续你在
+Codex、Claude Code 等受支持 Agent 中做过的工作。
+
+|  |  |
+|---|---|
+| **是什么** | 一个薄的 DSH 插件，把 sessionFlow 的接续层以六个 `sessionflow_*` tool 暴露出来。 |
+| **为什么用** | 在 Codex / Claude Code / Grok / ZCode 里开始的工作不必停在 Agent 边界——可以在 DSH 里接着做，目标、文件、命令和未完成事项都还在。 |
+| **安装** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` —— [详见](#安装)。需要可用的模型 provider **以及** sessionFlow core。 |
+| **试用** | 直接用自然语言说：*"继续我之前在 Claude Code 里对这个仓库做的工作。"* 完整流程见 [5 分钟上手指南](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md)。 |
+| **当前版本** | [v1.1.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.1.0) · DSH 0.1.5-rc.3 · Node ≥ 22.19 · bridge schema 1 |
+| **已知限制** | 由 Agent 发起的 native resume **尚未**验证 —— 见 [验证状态](#验证状态) |
 
 不是"又一个 session 管理器"，而是把 sessionFlow 的接续层以六个 tool 的形式提供给 DSH。
 
@@ -154,7 +168,7 @@ dsh --profile web --dump-config | grep dsh-sessionflow
 
 | 插件 | DSH | sessionFlow bridge schema | 状态 |
 |---|---|---|---|
-| 0.1.0 | 0.1.5-rc.3 | 1 | tested |
+| 1.1.0 | 0.1.5-rc.3 | 1 | tested |
 
 DSH 处于 Developer Preview，接口会变。插件声明它需要的 bridge `schema_version`，
 对更旧的核心**明确报错**；不声称支持"所有未来版本"。
