@@ -4,7 +4,9 @@ Every channel below was checked against its own source on **2026-10-12**; the
 "how it was verified" column says exactly what was read. Nothing here is
 inferred from a search-result snippet.
 
-**Status: all of this is a draft. Nothing has been submitted, posted or emailed.**
+**Status:** the curated-list PR has been **submitted** (see
+[Status of each step](#status-of-each-step)); nothing else has been posted,
+emailed or submitted, and no listing exists until a maintainer merges it.
 
 ---
 
@@ -135,18 +137,25 @@ them asks for anything beyond the public topic, ignore it.
 
 ---
 
-## Suggested order of operations (for approval, not executed)
+## Status of each step
 
-1. **Confirm the topic** is present (it is) — this is the official channel and it
-   is already satisfied. Nothing to submit.
-2. **Open the one-file PR** to `awesome-dsh-plugin/awesome-dsh-plugin` with the
-   YAML above. Expect a CI run, then a human read of the repo. Reply to review
-   comments; a bounce over wording is normal and is not a rejection of the
-   plugin.
-3. **Optionally** attach a prebuilt tarball to the next Release so the list can
-   offer a no-build install.
-4. **Then**, if you want a written announcement, publish the draft in
-   [`announcement.md`](announcement.md) wherever you choose — it is written to be
-   accurate as-is.
+1. **Official channel — the `dsh-plugin` topic.** **DONE** (it was already set;
+   nothing to submit, and the official repo does not accept external PRs).
+2. **Curated list — the one-file PR.** **SUBMITTED on 2026-10-12.**
+   - PR: https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/7226
+   - Branch: `HarryHeYu:add-dsh-sessionflow` (fork), base `main` @ `4726e1de`
+   - Commit: `9c9dc728a3dc33c63d0f9fd2744d8705eedaf8a8`
+   - File: `data/plugins/HarryHeYu__dsh-sessionflow.yml` (+6 / −0, nothing else)
+   - CI: `check` **pass** (7m1s) and `Submission gate` **pass** — the gate's own
+     verdict was *"All 1 submitted entry passes: `dsh.bundle` declared, repo old
+     enough, enough commits."*
+   - State: **OPEN**, `MERGEABLE`, `CLEAN`, no review yet.
+   - **A submitted PR is not a listing.** Nothing appears in the list until a
+     maintainer merges it, and a maintainer reads the repository before merging.
+3. **Optional — a prebuilt tarball** on the next Release, so the list can offer a
+   no-build install. Not done; the list treats this as recommended, not required.
+4. **The written announcement** is final and unposted — see
+   [`announcement.md`](announcement.md). Publishing anywhere is still your call.
 
-Each of these needs your explicit go-ahead. None has been done.
+Nothing was posted to any forum, Discord or GitHub Discussions.
+
