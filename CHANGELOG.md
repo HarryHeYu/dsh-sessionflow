@@ -17,17 +17,29 @@ release is in `docs/release-<version>.md`.
   nothing else, while failing it is the worst answer this module can give.
   A regression test pins the mechanism with a core that answers in 2.5 s and a
   400 ms per-call deadline.
+- **Concurrent resolutions each started their own probe.**  The cache is only
+  populated once a probe has *finished*, so several tool calls issued in one turn
+  each spawned an interpreter to answer the same question.  Concurrent callers
+  now share the in-flight resolution, and a failure is reported to all of them
+  identically instead of some succeeding on a later probe.
 
 ### Changed
 - **The suite no longer writes into the developer's real profile.**  The `merge`
   tests let the core pick the default output, which is
   `~/.voyager/bundles/bundle-merged-<n>sessions-<providers>-<epoch>.md`.  Two
   consequences, both observed: scratch accumulated in the user's home (186 files
-  by the time this was found), and because the default name has one-second
+  by the time this was found), and because the default name had one-second
   granularity, parallel suites computed the *same* path and one read-back came
   back empty — `merge output is stable for the same input` failing for a reason
   that had nothing to do with determinism.  The tests now pass an explicit `-o`
-  under the suite's temp dir.
+  under the suite's temp dir, and `tests/isolate.ts` points `HOME` and
+  `USERPROFILE` at a throwaway directory so every core this suite spawns is
+  isolated too.
+  `APPDATA` is deliberately **not** redirected: Python resolves its user
+  site-packages from it, and redirecting it makes every spawned core fail with
+  `ModuleNotFoundError: No module named 'voyager'` — which showed up as nineteen
+  integration tests silently *skipping*, a worse failure than the leak.  A test
+  records that decision so it reads as a choice rather than an oversight.
 - Integration calls go through the interpreter the seeding step already proved
   works, instead of making the bridge scan `PATH` again on every call.  `PATH`
   discovery keeps its own tests.

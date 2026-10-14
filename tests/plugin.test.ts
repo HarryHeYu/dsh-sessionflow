@@ -7,6 +7,10 @@
  * real one needs a booted DSH tree.
  */
 
+// FIRST: redirect HOME/USERPROFILE/APPDATA/LOCALAPPDATA at a throwaway dir
+// before anything spawns a child that would read them.  See tests/isolate.ts.
+import './isolate.ts';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';

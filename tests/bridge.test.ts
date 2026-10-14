@@ -16,10 +16,15 @@
  *    suite running at the same time.
  */
 
+// FIRST: redirect HOME/USERPROFILE/APPDATA/LOCALAPPDATA at a throwaway dir
+// before anything spawns a child that would read them.  See tests/isolate.ts.
+import './isolate.ts';
+import { REAL_HOME, TEST_HOME, appdataIsShared, isIsolated } from './isolate.ts';
+
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -219,8 +224,7 @@ test('a hanging op hits the deadline and becomes TIMEOUT', async () => {
   );
 });
 
-test('a slow but working core is still discovered, whatever the per-call deadline', async () => {
-  // Discovery has its own budget: the probe spawns an interpreter and imports
+test('a slow but working core is still discovered, whatever the per-call deadline', async () => {  // Discovery has its own budget: the probe spawns an interpreter and imports
   // a package, which costs far more than a call on an already-resolved command.
   // Here the core answers in 2.5 s and the caller's per-call deadline is 400 ms.
   // If the probe shared that deadline, discovery would fail and the user would
@@ -234,6 +238,48 @@ test('a slow but working core is still discovered, whatever the per-call deadlin
     delete process.env['SESSIONFLOW_TEST_DELAY_MS'];
     resetBridgeCache();
   }
+});
+
+test('concurrent resolutions share one probe instead of racing', async () => {
+  // The cache is only populated once a probe has *finished*, so without an
+  // in-flight guard every concurrent caller starts its own — and DSH can issue
+  // several tool calls in one turn, each of which resolves.  Three callers must
+  // cost one interpreter spawn, not three.
+  resetBridgeCache();
+  const record = join(makeTmpDir('dsh-sessionflow-count-'), 'calls.txt');
+  writeFileSync(record, '');
+  const saved = process.env['SESSIONFLOW_ECHO_FILE'];
+  process.env['SESSIONFLOW_ECHO_FILE'] = record;
+  try {
+    const opts = stub('stub-counting.mjs');
+    const resolved = await Promise.all([
+      resolveVoyager(opts), resolveVoyager(opts), resolveVoyager(opts),
+    ]);
+    for (const r of resolved) assert.equal(r.command, process.execPath);
+
+    const probes = readFileSync(record, 'utf8')
+      .split('\n').filter((l) => l.trim() === 'probe').length;
+    assert.equal(probes, 1,
+      `three concurrent resolutions ran ${probes} probes; they must share one`);
+  } finally {
+    if (saved === undefined) delete process.env['SESSIONFLOW_ECHO_FILE'];
+    else process.env['SESSIONFLOW_ECHO_FILE'] = saved;
+    resetBridgeCache();
+  }
+});
+
+test('a changed configuration re-resolves instead of reusing the cache', async () => {
+  // The cache key covers voyagerBin, voyagerArgs and python.  If it did not, a
+  // plugin reconfigured at runtime would keep talking to the previous core --
+  // and since `voyagerArgs` carries `--db`, that means answering from the wrong
+  // index while looking perfectly healthy.
+  resetBridgeCache();
+  const first = await resolveVoyager(stub('stub-echo.mjs'));
+  assert.ok(first.prefixArgs[0]?.endsWith('stub-echo.mjs'), first.prefixArgs[0]);
+  const second = await resolveVoyager(stub('stub-counting.mjs'));
+  assert.ok(second.prefixArgs[0]?.endsWith('stub-counting.mjs'),
+    'the second configuration reused the first resolution');
+  resetBridgeCache();
 });
 
 test('the deadline kills the child, not just the promise', async () => {
@@ -599,6 +645,58 @@ test('merge rejects an unknown session instead of merging what it found', integr
   }
   assert.ok(failed, 'a merge naming a session that does not exist must not silently succeed');
 });
+
+// --- test isolation ---------------------------------------------------------
+//
+// The integration tests spawn the real core as a child, and a child inherits
+// this process's environment.  The core resolves `~/.voyager/bundles/` from
+// `Path.home()`, so with the developer's real home in place these tests wrote
+// bundles into their profile.  `tests/isolate.ts` is what stops that; the two
+// tests below are what prove it still does.
+
+/** Names in the developer's real bundles directory, or null if absent. */
+function snapshotRealBundles(): string[] | null {
+  if (!REAL_HOME) return null;
+  try {
+    return readdirSync(join(REAL_HOME, '.voyager', 'bundles')).sort();
+  } catch {
+    return null;
+  }
+}
+
+test('the suite runs against a throwaway home', () => {
+  assert.ok(TEST_HOME.length > 0, 'isolate.ts did not create a temp home');
+  assert.ok(isIsolated(),
+    'HOME/USERPROFILE still point at the real profile: every spawned core ' +
+    'would read and write the developer\'s own data');
+});
+
+test('APPDATA is left alone, and that is deliberate', () => {
+  // Redirecting it makes Python resolve a different user site-packages, where
+  // the core is not installed, so every spawned core dies with
+  // `No module named 'voyager'` and nineteen integration tests skip silently.
+  // `%APPDATA%` is read (never written) by one place in the product -- kiro
+  // session discovery -- and these tests never scan.  Pinned here so the
+  // decision is visible rather than looking like an oversight.
+  assert.ok(appdataIsShared(),
+    'APPDATA was redirected; if interpreter discovery still works this comment ' +
+    'is stale and the redirection can be reinstated -- verify before changing');
+});
+
+test('a merge using the DEFAULT output path cannot reach the real profile',
+  integrationTwo, async () => {
+    // Deliberately no `-o`: the whole point is to exercise the core's own
+    // default, which is the path that leaked.  With `-o` this test would pass
+    // whether or not the redirection worked.
+    resetBridgeCache();
+    const before = snapshotRealBundles();
+    const r = await runJson<{ context: string }>(
+      ['merge', 'codex:m1', 'claude:m2', '--goal', 'isolation check',
+       '--thread-title', 'isolation check'], coreFor(seededTwo));
+    assert.ok((r.context ?? '').length > 0, 'the merge produced no context');
+    assert.deepEqual(snapshotRealBundles(), before,
+      'a merge wrote into the developer\'s real ~/.voyager/bundles/');
+  });
 
 test('current_work passes the ambiguity fields through', integrationTwo, async () => {
   resetBridgeCache();

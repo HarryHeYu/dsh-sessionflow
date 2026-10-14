@@ -103,6 +103,9 @@ let cachedKey: string | null = null;
 let cachedCommand: VoyagerCommand | null = null;
 let cachedInfo: IntegrationInfo | null = null;
 let cachedInfoKey: string | null = null;
+/** The resolution currently running, so concurrent callers share one probe. */
+let inFlight: Promise<VoyagerCommand> | null = null;
+let inFlightKey: string | null = null;
 
 /** Reset the process-wide caches (tests). */
 export function resetBridgeCache(): void {
@@ -110,6 +113,8 @@ export function resetBridgeCache(): void {
   cachedCommand = null;
   cachedInfo = null;
   cachedInfoKey = null;
+  inFlight = null;
+  inFlightKey = null;
 }
 
 function cacheKey(opts: BridgeOptions): string {
@@ -253,6 +258,29 @@ export async function resolveVoyager(opts: BridgeOptions = {}): Promise<VoyagerC
   const key = cacheKey(opts);
   if (cachedCommand && cachedKey === key) return cachedCommand;
 
+  // A probe is only cached once it has *finished*, so without this every
+  // concurrent caller starts its own: DSH can issue several tool calls in one
+  // turn and each one resolves, which would spawn an interpreter per call to
+  // answer the same question.  Sharing the in-flight promise also means a
+  // failure is reported to all of them identically rather than some succeeding
+  // on a later probe.
+  if (inFlight && inFlightKey === key) return inFlight;
+
+  const pending = resolveVoyagerUncached(opts, key);
+  inFlight = pending;
+  inFlightKey = key;
+  try {
+    return await pending;
+  } finally {
+    if (inFlight === pending) {
+      inFlight = null;
+      inFlightKey = null;
+    }
+  }
+}
+
+async function resolveVoyagerUncached(opts: BridgeOptions,
+                                      key: string): Promise<VoyagerCommand> {
   const bin = configuredBin(opts);
   const [first, ...rest] = candidates(opts);
   if (first === undefined) {

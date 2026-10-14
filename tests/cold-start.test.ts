@@ -13,6 +13,10 @@
  * removed afterwards, with SESSIONFLOW_TEST_TMPDIR to relocate them off C:.
  */
 
+// FIRST: redirect HOME/USERPROFILE/APPDATA/LOCALAPPDATA at a throwaway dir
+// before anything spawns a child that would read them.  See tests/isolate.ts.
+import './isolate.ts';
+
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
