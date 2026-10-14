@@ -7,8 +7,13 @@
  *    the compatibility gate, proven against stub executables so they are
  *    hermetic and fast;
  *  * **integration** — the real JSON round-trip against the installed
- *    sessionFlow core, read-only, using queries that are deterministic on any
- *    index (a gibberish term, a gibberish repo).
+ *    sessionFlow core, using queries that are deterministic on any index (a
+ *    gibberish term, a gibberish repo).  Read-only, with one exception:
+ *    `merge` compiles a bundle, and those tests pass an explicit `-o` into a
+ *    temp dir — the core's default is `~/.voyager/bundles/`, which would put
+ *    scratch in the developer's real profile and, because the default name is
+ *    the member list plus a one-second timestamp, would collide with any other
+ *    suite running at the same time.
  */
 
 import { test, after } from 'node:test';
@@ -60,7 +65,7 @@ after(() => {
 import {
   VoyagerError,
   assertCompatible,
-  callOp,
+  callOp as callOpRaw,
   integrationInfo,
   resetBridgeCache,
   resolveVoyager,
@@ -78,6 +83,42 @@ function stub(name: string, extra: BridgeOptions = {}): BridgeOptions {
     voyagerArgs: [join(FIXTURES, name)],
     ...extra,
   };
+}
+
+/**
+ * The interpreter the seeding step proved works, once it has been found.
+ *
+ * Declared before the first `await` so a test body that runs while this
+ * module's top-level await is still pending reads `null` rather than hitting
+ * the temporal dead zone of a `const` further down the file.
+ */
+let provenPython: string | null = null;
+
+/**
+ * Integration calls go through a **known-good** interpreter instead of making
+ * the bridge scan `PATH` again.
+ *
+ * The seeding step above already ran `python -c …` successfully, so which
+ * interpreter has the package is not in question — but a bare `callOp` would
+ * rediscover it by probing candidates, and that probe spawns an interpreter
+ * and imports a package.  Under load that is slow, and a discovery that is
+ * merely slow used to surface as `VOYAGER_NOT_FOUND` on a machine where the
+ * core was installed and working: a contract test failing for an environmental
+ * reason, reported as if the plugin could not reach the core.
+ *
+ * Pinning it makes these tests deterministic about *which* interpreter they
+ * mean.  `PATH` discovery is not left untested — it has its own tests below,
+ * and in `cold-start.test.ts`.
+ *
+ * Calls that pass an explicit `voyagerBin` (every stub-based mechanics test)
+ * are left alone: the configured command is authoritative and adding a
+ * fallback candidate to it would change what those tests prove.
+ */
+function callOp<T>(op: string, params: Record<string, unknown>,
+                   opts: BridgeOptions = {}): Promise<T> {
+  const base: BridgeOptions =
+    opts.voyagerBin === undefined && provenPython ? { python: provenPython } : {};
+  return callOpRaw<T>(op, params, { ...base, ...opts });
 }
 
 // --- mechanics --------------------------------------------------------------
@@ -176,6 +217,23 @@ test('a hanging op hits the deadline and becomes TIMEOUT', async () => {
     () => callOp('search', { query: 'x' }, stub('stub-hang.mjs', { timeoutMs: 800 })),
     (e: unknown) => e instanceof VoyagerError && e.code === 'TIMEOUT',
   );
+});
+
+test('a slow but working core is still discovered, whatever the per-call deadline', async () => {
+  // Discovery has its own budget: the probe spawns an interpreter and imports
+  // a package, which costs far more than a call on an already-resolved command.
+  // Here the core answers in 2.5 s and the caller's per-call deadline is 400 ms.
+  // If the probe shared that deadline, discovery would fail and the user would
+  // be told the core is not installed -- while it is installed and working.
+  resetBridgeCache();
+  process.env['SESSIONFLOW_TEST_DELAY_MS'] = '2500';
+  try {
+    const cmd = await resolveVoyager(stub('stub-slow.mjs', { timeoutMs: 400 }));
+    assert.equal(cmd.command, process.execPath);
+  } finally {
+    delete process.env['SESSIONFLOW_TEST_DELAY_MS'];
+    resetBridgeCache();
+  }
 });
 
 test('the deadline kills the child, not just the promise', async () => {
@@ -315,6 +373,19 @@ print("seeded")
 `;
 
 const python = await findPython();
+provenPython = python;
+
+/**
+ * Where the merge tests put their bundles.
+ *
+ * `merge` defaults to `~/.voyager/bundles/` with a name made of the member list
+ * and `int(time.time())`.  Left alone, that writes scratch into the developer's
+ * real profile and gives two concurrent suites the same path — which is how a
+ * `merge` read-back once came back empty.  An explicit `-o` under the suite's
+ * temp dir makes both of those impossible.
+ */
+const bundleDir = makeTmpDir('dsh-sessionflow-bundles-');
+const bundleOut = (name: string): string => join(bundleDir, name);
 
 // A test must not scan the machine it runs on.  The core's freshness step
 // (`_ensure_fresh`) runs a real incremental scan of every provider's session
@@ -494,7 +565,8 @@ test('merge is callable and synthesizes both sessions', integrationTwo, async ()
     member_count: number | null; error: string | null;
   }>(['merge', 'codex:m1', 'claude:m2',
       '--goal', 'finish the parser boundary check',
-      '--thread-title', 'parser work'], coreFor(seededTwo));
+      '--thread-title', 'parser work',
+      '-o', bundleOut('merge-callable.md')], coreFor(seededTwo));
   assert.equal(r.error, null);
   assert.equal(r.member_count, 2);
   assert.ok(r.thread_id, 'merge must persist a WorkThread');
@@ -506,7 +578,8 @@ test('merge is callable and synthesizes both sessions', integrationTwo, async ()
 
 test('merge output is stable for the same input', integrationTwo, async () => {
   resetBridgeCache();
-  const args = ['merge', 'codex:m1', 'claude:m2', '--goal', 'g', '--thread-title', 't'];
+  const args = ['merge', 'codex:m1', 'claude:m2', '--goal', 'g', '--thread-title', 't',
+                '-o', bundleOut('merge-stable.md')];
   const a = await runJson<{ context: string; thread_id: string | null }>(args, coreFor(seededTwo));
   const b = await runJson<{ context: string; thread_id: string | null }>(args, coreFor(seededTwo));
   assert.equal(a.thread_id, b.thread_id, 're-merging the same members must not fork a thread');
@@ -518,8 +591,8 @@ test('merge rejects an unknown session instead of merging what it found', integr
   let failed = false;
   try {
     const r = await runJson<{ error?: string | null; member_count?: number | null }>(
-      ['merge', 'codex:m1', 'codex:definitely-not-a-session'],
-      coreFor(seededTwo));
+      ['merge', 'codex:m1', 'codex:definitely-not-a-session',
+       '-o', bundleOut('merge-unknown.md')], coreFor(seededTwo));
     failed = Boolean(r.error) || r.member_count !== 2;
   } catch {
     failed = true;

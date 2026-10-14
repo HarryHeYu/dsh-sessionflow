@@ -3,6 +3,35 @@
 Notable changes to `dsh-sessionflow`, newest first.  The full write-up for each
 release is in `docs/release-<version>.md`.
 
+## [Unreleased]
+
+### Fixed
+- **A loaded machine could be told the core was not installed.**  Discovery
+  probes the candidate command by spawning it and importing the package, and the
+  probe shared a 15 s ceiling.  Under real load — a full CI matrix, a cold page
+  cache, ten suites running at once — starting Python and importing the package
+  can exceed that, and every integration test in the process then failed with
+  `VOYAGER_NOT_FOUND` for a core that was installed and working.  Measured: 8 of
+  80 runs under load.  The probe now has a 60 s budget of its own; it runs once
+  per process and the result is cached, so being patient costs one startup and
+  nothing else, while failing it is the worst answer this module can give.
+  A regression test pins the mechanism with a core that answers in 2.5 s and a
+  400 ms per-call deadline.
+
+### Changed
+- **The suite no longer writes into the developer's real profile.**  The `merge`
+  tests let the core pick the default output, which is
+  `~/.voyager/bundles/bundle-merged-<n>sessions-<providers>-<epoch>.md`.  Two
+  consequences, both observed: scratch accumulated in the user's home (186 files
+  by the time this was found), and because the default name has one-second
+  granularity, parallel suites computed the *same* path and one read-back came
+  back empty — `merge output is stable for the same input` failing for a reason
+  that had nothing to do with determinism.  The tests now pass an explicit `-o`
+  under the suite's temp dir.
+- Integration calls go through the interpreter the seeding step already proved
+  works, instead of making the bridge scan `PATH` again on every call.  `PATH`
+  discovery keeps its own tests.
+
 ## [1.1.0] — 2026-10-11
 
 Correctness and trust release.  The tool surface is unchanged: same six names,

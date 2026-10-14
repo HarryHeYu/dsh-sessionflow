@@ -26,8 +26,16 @@ const DEFAULT_TIMEOUT_MS = 20_000;
  * The discovery probe spawns an interpreter and loads a package, which costs
  * far more than a call on an already-resolved command.  It therefore gets its
  * own floor: a short per-call deadline must not make discovery fail.
+ *
+ * It is deliberately patient.  The probe runs **once per process** and its
+ * result is cached, so waiting longer costs one startup and nothing else —
+ * whereas failing it tells the user their core is not installed while it is
+ * sitting on PATH, which is the worst answer this module can give.  A loaded
+ * machine (a full test matrix, a cold page cache, a parallel build) can take
+ * far longer than a quiet one to start Python and import the package; 15 s was
+ * measured to be too tight under that load.
  */
-const PROBE_TIMEOUT_MS = 15_000;
+const PROBE_TIMEOUT_MS = 60_000;
 
 /** The version/capability probe the core returns. */
 export interface IntegrationInfo {
