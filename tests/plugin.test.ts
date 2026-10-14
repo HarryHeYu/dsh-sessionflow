@@ -30,11 +30,17 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 /**
  * A stub core, so `apply()`'s startup compatibility probe never spawns the
  * real one — the test stays hermetic and fast instead of waiting on discovery.
+ *
+ * No `timeoutMs`: these tests assert *what a tool forwards*, never how fast it
+ * does it.  A short deadline here only measures how loaded the machine is —
+ * spawning the stub costs a Node cold start, which under heavy load has been
+ * measured at ~4 s, and a 3 s deadline then fails a test whose subject is
+ * argument forwarding.  The deadline policy has its own test in
+ * `bridge.test.ts`.
  */
 const STUB = {
   voyagerBin: process.execPath,
   voyagerArgs: [join(HERE, 'fixtures', 'stub-badjson.mjs')],
-  timeoutMs: 3000,
 };
 
 interface RegisteredTool {
@@ -111,10 +117,11 @@ test('the required-argument tools really require one', () => {
 // --- wire-up: does each tool forward the op the core actually implements? ----
 
 function echoBridge() {
+  // Same reasoning as STUB above: the subject is which op the tool forwarded,
+  // not how quickly a spawned stub answered.
   return {
     voyagerBin: process.execPath,
     voyagerArgs: [join(HERE, 'fixtures', 'stub-echo.mjs')],
-    timeoutMs: 5000,
   };
 }
 

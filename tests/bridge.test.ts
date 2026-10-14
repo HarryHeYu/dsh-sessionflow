@@ -41,6 +41,28 @@ const exec = promisify(execFile);
 // that was right there.)
 const PATH_AT_LOAD = process.env['PATH'] ?? '';
 
+/**
+ * How long to wait for a *test-spawned* core.
+ *
+ * These tests assert what the core returned, never how fast it returned, and
+ * spawning a Python interpreter under load is the slowest thing here.  The
+ * product's own deadline (20 s) is a policy for interactive use and has its own
+ * tests below; applying it here only measures how busy the machine is — it
+ * produced a failure in a run where a `merge` took longer than 20 s to start,
+ * in a test whose subject was the output path.
+ */
+const TEST_CALL_TIMEOUT_MS = 120_000;
+
+/** How long this machine takes to start a Node process, measured once. */
+let coldStartMs: number | null = null;
+async function nodeColdStartMs(): Promise<number> {
+  if (coldStartMs !== null) return coldStartMs;
+  const t0 = Date.now();
+  await execHermetic(process.execPath, ['-e', 'process.exit(0)']);
+  coldStartMs = Math.max(Date.now() - t0, 25);
+  return coldStartMs;
+}
+
 /** Spawn with the PATH this module started with, whatever the tests have done. */
 function execHermetic(file: string, args: string[]) {
   return exec(file, args, { env: { ...process.env, PATH: PATH_AT_LOAD } });
@@ -86,6 +108,10 @@ function stub(name: string, extra: BridgeOptions = {}): BridgeOptions {
   return {
     voyagerBin: process.execPath,
     voyagerArgs: [join(FIXTURES, name)],
+    // Same reasoning as TEST_CALL_TIMEOUT_MS: these tests check error mapping
+    // and argument forwarding, not latency.  A test that is *about* the
+    // deadline passes its own `timeoutMs`, which wins.
+    timeoutMs: TEST_CALL_TIMEOUT_MS,
     ...extra,
   };
 }
@@ -122,7 +148,9 @@ let provenPython: string | null = null;
 function callOp<T>(op: string, params: Record<string, unknown>,
                    opts: BridgeOptions = {}): Promise<T> {
   const base: BridgeOptions =
-    opts.voyagerBin === undefined && provenPython ? { python: provenPython } : {};
+    opts.voyagerBin === undefined && provenPython
+      ? { python: provenPython, timeoutMs: TEST_CALL_TIMEOUT_MS }
+      : {};
   return callOpRaw<T>(op, params, { ...base, ...opts });
 }
 
@@ -288,10 +316,13 @@ test('the deadline kills the child, not just the promise', async () => {
   writeFileSync(marker, '');
   process.env['SESSIONFLOW_TEST_MARKER'] = marker;
   try {
-    // Generous deadline: interpreter startup alone can take a second, and the
-    // point is that the child is KILLED, not that the timer is precise.
+    // The deadline has to be long enough that the child is definitely running
+    // (or the test proves nothing) and short enough to be a deadline.  A fixed
+    // number cannot do both when a cold start varies by an order of magnitude
+    // with machine load, so it is derived from a measured cold start.
+    const deadlineMs = Math.max(6000, 20 * await nodeColdStartMs());
     await assert.rejects(
-      () => callOp('search', { query: 'x' }, stub('stub-marker.mjs', { timeoutMs: 6000 })),
+      () => callOp('search', { query: 'x' }, stub('stub-marker.mjs', { timeoutMs: deadlineMs })),
       (e: unknown) => e instanceof VoyagerError && e.code === 'TIMEOUT',
     );
     const atDeadline = statSync(marker).size;
@@ -478,7 +509,8 @@ const integration = { skip: seeded === null ? seedProblem : false };
  */
 function coreFor(db: string): BridgeOptions {
   return { voyagerBin: python ?? 'python',
-           voyagerArgs: ['-m', 'voyager.cli', '--db', db] };
+           voyagerArgs: ['-m', 'voyager.cli', '--db', db],
+           timeoutMs: TEST_CALL_TIMEOUT_MS };
 }
 
 test('resolves the real core and reports its bridge schema', integration, async () => {
