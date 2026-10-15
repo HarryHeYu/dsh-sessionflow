@@ -6,6 +6,33 @@ release is in `docs/release-<version>.md`.
 ## [Unreleased]
 
 ### Fixed
+- **The plugin could not be installed on any current harness.**  Both peer
+  ranges excluded the versions users actually run, so `dsh plugin add` ended in
+  an `ERESOLVE` that had to be worked around by hand.
+
+  `@deepseek-ai/dsh-tools` was pinned to `^0.1.5-rc.3`.  That reads as "0.1.5-rc.3
+  and later within 0.1.x", but node-semver only lets a *prerelease* version
+  satisfy a range when some comparator in that range shares its exact
+  `major.minor.patch` tuple **and** itself carries a prerelease tag — so it
+  really meant "only the 0.1.5 tuple".  Measured against the 34 published
+  versions it matched **exactly one**, the one it was written against, and
+  excluded both current dist-tags: `next` (`0.2.0-rc.2`) and `alpha`
+  (`0.2.1-alpha.4`), along with `0.1.7-rc.2`.  The range now names each
+  prerelease line explicitly.
+
+  `@deepseek-ai/cordis` was pinned to an exact `4.0.2`, while the host
+  (`@deepseek-ai/dsh-tools@0.2.0-rc.2`) declares `~4.0.4` — the same failure by a
+  different route.  It is now `^4.0.2 || >=4.0.5-alpha.1 <5.0.0`, which keeps the
+  version we build against and admits what the host asks for.
+
+  Neither failure was visible from the repository: the tests all passed, the
+  build was clean, and the CI gate on the community submission was green.  It
+  only appeared when the published version lists were actually resolved against
+  the ranges.  `tests/peer-range.test.ts` now does that, so the ranges cannot rot
+  silently again — and it skips loudly (`t.skip`) rather than passing when
+  `semver` or the registry is unavailable, because an unverified guard reading as
+  green is how this survived in the first place.
+
 - **A loaded machine could be told the core was not installed.**  Discovery
   probes the candidate command by spawning it and importing the package, and the
   probe shared a 15 s ceiling.  Under real load — a full CI matrix, a cold page
