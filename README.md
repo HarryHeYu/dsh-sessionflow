@@ -31,6 +31,21 @@ DSH:   → sessionflow_current_work
        [continues with the previous goal, files, commands and unresolved work]
 ```
 
+**Say what you are looking for, not just "continue."** The tools fire far more
+reliably on a lookup than on a bare action:
+
+```
+User:  What was I working on before? Continue from there.
+User:  Continue the unfinished Codex work in this project.
+User:  Find the previous Claude Code work on this repository.
+```
+
+A bare *"Continue the unfinished work in this project"* is the weakest phrasing:
+with nothing in the repository marking what is left, the agent may read the files
+and start writing instead of consulting history. It will not invent history, but it
+can miss work only the earlier sessions record — exactly the case this plugin is
+for. See the [Quick Start](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md).
+
 ```
 Claude Code ─┐
 Codex ───────┤
