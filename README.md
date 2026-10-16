@@ -15,7 +15,8 @@ supported agents using [sessionFlow](https://github.com/HarryHeYu/sessionFlow).
 | **Why use it** | Work started in Codex, Claude Code, Grok or ZCode does not have to stop at the agent boundary — pick it back up inside DSH with the goal, files, commands and open items intact. |
 | **Install** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` — [details](#install). Needs a working model provider **and** the sessionFlow core. |
 | **Try it** | Ask in plain language: *"Continue the work I was doing in Claude Code on this repo."* Full walkthrough: [5-minute Quick Start](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md). |
-| **Current release** | [v1.1.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.1.0) · DSH 0.1.5-rc.3 · Node ≥ 22.19 · bridge schema 1 |
+| **Current release** | [v1.1.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.1.0) · DSH 0.1.5-rc.3 and 0.2.0-rc.2 · Node ≥ 22.19 · bridge schema 1 |
+| **Privacy** | Local only. No account, no telemetry, no network calls — [boundary](#what-stays-local) |
 | **Known limitation** | Native resume by an agent is **not verified** — see [verification status](#verification-status) |
 
 Not "yet another session manager" — sessionFlow's continuity layer, exposed to
@@ -54,13 +55,27 @@ search, WorkThread, ranking, merging or context compilation happens in this
 plugin: every call is forwarded to the existing Voyager core over its stable
 JSON interface.
 
+## Continuation, not native resume
+
+These are two different things, and this plugin only does the first. Worth
+knowing before you expect the second:
+
+| | What it is | Status |
+|---|---|---|
+| **Native resume** | Hand an agent back its *own* earlier session, so it continues with full native state (`claude --resume`, `codex resume`). | **Not verified.** The plugin can report the command and the core records it, but no scenario here has launched another agent's session — that spends your credentials and writes into your real environment. |
+| **Cross-agent continuation** | Compile *other* agents' work — goal, files, commands, open items, provenance — into a context package or bundle, and hand it to whatever agent you are in now. | **Verified.** See [verification status](#verification-status). |
+
+The second row is the point: it is what lets work cross an agent boundary at
+all, including when the next agent has no way to resume the previous one.
+
 ## Requirements
 
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`)
-  — tested against **0.1.5-rc.3**, **with a working model provider**. A fresh
-  `headless` profile has no LLM adapter and no credentials, and DSH stops with
-  `MISSING_CREDENTIAL: … no API key for provider route`. That is the host's
-  configuration, not this plugin's: **this plugin does not provide model
+  — verified on **0.1.5-rc.3** and **0.2.0-rc.2** (`next`), **with a working
+  model provider**. A fresh `headless` profile has no LLM adapter and no
+  credentials, and DSH stops with
+  `MISSING_CREDENTIAL: … no credential for provider route "…"`. That is the
+  host's configuration, not this plugin's: **this plugin does not provide model
   access** and cannot work around a missing provider. Set up the provider
   before installing anything here.
 - [sessionFlow / Voyager](https://github.com/HarryHeYu/sessionFlow), installed
@@ -187,13 +202,29 @@ an empty result.
 
 ## Compatibility
 
-| Plugin | DSH | sessionFlow bridge schema | Status |
-|---|---|---|---|
-| 1.1.0 | 0.1.5-rc.3 | 1 | tested |
+Stated per channel, and at the level actually reached. The peer ranges admit the
+`0.1.5` / `0.1.6` / `0.1.7` and `0.2.x` prerelease lines; how far each was taken
+is a separate question:
+
+| Plugin | DSH | bridge schema | install resolves | DSH loads it | tool call answered |
+|---|---|---|---|---|---|
+| 1.1.0 | `0.1.5-rc.3` | 1 | yes | yes | yes |
+| 1.1.0 | `0.1.7-rc.2` | 1 | yes | not run | not run |
+| 1.1.0 | `0.2.0-rc.2` (`next`) | 1 | yes | yes | yes |
+| 1.1.0 | `0.2.1-alpha.4` (`alpha`) | 1 | yes | yes | yes |
+
+"Not run" is not a euphemism for "probably fine" — `0.1.7-rc.2` is admitted so
+that a user on it is not blocked by an install error, and nothing more is
+claimed. The `latest` dist-tag is a stale `0.0.1-rc.1` upstream and is
+deliberately **not** admitted: there is no evidence the plugin works on the
+first release candidate, and claiming it so an install would succeed is the same
+mistake in the other direction.
 
 DSH is in Developer Preview and does move. The plugin declares the bridge
 `schema_version` it needs and fails clearly against an older core; it does not
-claim to support "all future versions".
+claim to support "all future versions". `tests/peer-range.test.ts` pins this
+table, so widening a range forces a decision about the new row's status instead
+of silently admitting it.
 
 ## Verification status
 
@@ -227,11 +258,26 @@ Stated at the level actually reached — nothing below is promoted.
 The Linux cold-start jobs run on every push:
 [`.github/workflows/cold-start.yml`](.github/workflows/cold-start.yml) drives
 `scripts/cold-start.sh` over both install paths in a throwaway `DSH_HOME`, with
-the host toolchain pinned (dsh 0.1.5-rc.3, pnpm 11.22.0, Node 22.22.2, Python
+the host toolchain pinned (dsh 0.1.5-rc.3 and 0.2.0-rc.2, pnpm 11.22.0,
+Node 22.22.2, Python
 3.13).  They need no model: the boot stops at the credential gate, which is the
 evidence that the plugin loaded.
 
 Full transcript and tool-call records: [`docs/live-verification.md`](docs/live-verification.md).
+
+### The end-to-end demo
+
+[`docs/p12-dsh-cross-agent-demo.md`](docs/p12-dsh-cross-agent-demo.md) is the
+short version: a real DSH agent, a real model, a scratch project whose test
+suite is *green* because the unfinished case has no test — so the only way to
+find the remaining work is to recover the prior sessions. It records both
+scenarios (Codex → DSH, and Codex + Claude → DSH), the bundle the agent was
+given, the diff it produced, and the tests passing 8 → 9.
+
+It also records the run that **failed**: on a bare "continue the unfinished
+work" prompt the agent called none of the six tools and invented a scope instead.
+The tools were offered to the model in that run; the prompt just did not ask the
+question they answer.
 
 ### Automated compatibility (O6.5 consumer closure, 2026-10-06)
 
@@ -304,22 +350,34 @@ installed copy.
 Run `dsh --profile <p> --dump-config` and look for `- id: dsh-sessionflow`.
 If it is absent, the bundle was not discovered — see the two entries above.
 
-## Security
+## What stays local
 
-- Arguments are passed to `spawn` as an **argv array** — no shell string is
-  ever built, so a query containing `;`, `"` or CJK text is data, not syntax.
-- The plugin has **no arbitrary shell execution**. It can only call the core's
-  read-only interface, plus `voyager merge` (the one write, which persists a
-  WorkThread).
-- It reads only the index sessionFlow already built. It does not scan, copy or
-  upload provider session files, and sends nothing over the network.
+Everything. This is the part worth being precise about, because the whole value
+proposition is that your coding history does not leave your machine.
+
+- **No account, no telemetry, no analytics.** The plugin makes no network calls
+  of any kind — not even a version check. (`grep -rE 'fetch\(|https?://' src/`
+  finds one string, in a help message.)
+- **It does not read your session files.** It reads the index sessionFlow already
+  built. Scanning provider directories — `~/.codex`, `~/.claude`, and the rest —
+  is the core's job, and it is what `voyager scan` does; the plugin never opens
+  those files, never copies them and never uploads them.
+- **The only write is `voyager merge`**, which persists a WorkThread in your own
+  local index. Every other call is read-only.
+- **No shell string is ever built.** Arguments reach `spawn` as an argv array, so
+  a query containing `;`, `"`, or CJK text is data, not syntax. There is no
+  path by which a search query becomes a command.
+- **The model sees what you would expect it to see.** Continuation context is
+  assembled locally and then passed to your configured model provider — that
+  provider is the only place any of it goes, and that is your provider choice,
+  not this plugin's.
 
 ## Development
 
 ```sh
 npm install
 npm run build     # tsc -> lib/
-npm test          # build, then node --test — 40 tests (bridge mechanics + live core)
+npm test          # build, then node --test — 50 tests (bridge mechanics + live core)
 ```
 
 `tests/bridge.test.ts` covers resolution, timeouts, malformed JSON, non-zero
