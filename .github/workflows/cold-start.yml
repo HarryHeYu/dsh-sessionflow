@@ -27,14 +27,14 @@ concurrency:
 
 env:
   # Pinned so a run can be reproduced verbatim.  Bump these deliberately.
-  HOST_DSH: "@deepseek-ai/dsh@0.1.5-rc.3"
+  # HOST_DSH is overridden per matrix entry below; the others are fixed.
   HOST_PNPM: "pnpm@11.22.0"
   HOST_NODE: "22.22.2"
   HOST_PYTHON: "3.13"
 
 jobs:
   linux-cold-start:
-    name: linux cold-start (${{ matrix.install }})
+    name: linux cold-start (${{ matrix.label }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -44,7 +44,16 @@ jobs:
         # documented local-checkout path.  They exercise different pnpm
         # dependency kinds (git tarball vs file:), and only `github` can fail
         # because of the prepare-script allowlist.
-        install: [github, file]
+        #
+        # The 0.2.0-rc.2 entry is here because the peer-range bug that motivated
+        # all of this was invisible on the version CI pinned: the plugin
+        # installed fine on 0.1.5-rc.3 and could not be installed at all on the
+        # `next` channel users are actually on.  Pinning the harness is not the
+        # same as covering the harnesses; one row per channel is the difference.
+        include:
+          - { install: github, dsh: "0.1.5-rc.3", label: github-015 }
+          - { install: file,   dsh: "0.1.5-rc.3", label: file-015 }
+          - { install: file,   dsh: "0.2.0-rc.2", label: file-020 }
     steps:
       - name: Check out the plugin
         uses: actions/checkout@v4
@@ -66,6 +75,8 @@ jobs:
           python-version: ${{ env.HOST_PYTHON }}
 
       - name: Install the pinned host toolchain
+        env:
+          HOST_DSH: "@deepseek-ai/dsh@${{ matrix.dsh }}"
         run: |
           npm install -g "$HOST_DSH" "$HOST_PNPM"
           echo "--- pinned versions ---"
@@ -73,6 +84,12 @@ jobs:
           npm --version
           pnpm --version
           dsh --version
+          # The matrix row is a claim about which harness was exercised.  If the
+          # install resolved something else, the row would be a lie, so check it.
+          dsh --version | grep -qF "${{ matrix.dsh }}" || {
+            echo "dsh --version did not report ${{ matrix.dsh }}" >&2
+            exit 1
+          }
 
       - name: Assert the machine is a clean slate
         run: |
@@ -115,7 +132,7 @@ jobs:
 
       - name: Run the cold-start checks
         env:
-          COLD_ROOT: ${{ runner.temp }}/cold-${{ matrix.install }}
+          COLD_ROOT: ${{ runner.temp }}/cold-${{ matrix.label }}
         run: |
           set -euo pipefail
           SPEC="github:HarryHeYu/dsh-sessionflow"
@@ -123,15 +140,15 @@ jobs:
             SPEC="file:$GITHUB_WORKSPACE/plugin"
           fi
           echo "install spec: $SPEC"
-          bash plugin/scripts/cold-start.sh "$SPEC" "cold-${{ matrix.install }}" python
+          bash plugin/scripts/cold-start.sh "$SPEC" "cold-${{ matrix.label }}" python
 
       - name: Show what was installed
         if: always()
         env:
-          COLD_ROOT: ${{ runner.temp }}/cold-${{ matrix.install }}
+          COLD_ROOT: ${{ runner.temp }}/cold-${{ matrix.label }}
         run: |
           set -uo pipefail
-          P="$COLD_ROOT/dshhome/profiles/cold-${{ matrix.install }}"
+          P="$COLD_ROOT/dshhome/profiles/cold-${{ matrix.label }}"
           echo "--- profile dir ---"
           ls -la "$P" 2>/dev/null || true
           echo "--- pnpm-workspace.yaml ---"
@@ -145,7 +162,7 @@ jobs:
       - name: Clean up the scratch root
         if: always()
         env:
-          COLD_ROOT: ${{ runner.temp }}/cold-${{ matrix.install }}
+          COLD_ROOT: ${{ runner.temp }}/cold-${{ matrix.label }}
         run: rm -rf "$COLD_ROOT"
 
   plugin-tests:
@@ -187,6 +204,16 @@ jobs:
           npm ci
           npm run build
           npm test
+
+      - name: Peer range vs the live registry (non-blocking)
+        # Informational only.  The blocking gate is the pinned host list in
+        # tests/peer-range.test.ts, which needs no network.  This step asks the
+        # other question -- has a dist-tag moved since we pinned that list? --
+        # and must never fail the build, because a floating registry is exactly
+        # the kind of thing that would turn CI red for reasons that are not ours.
+        continue-on-error: true
+        working-directory: plugin
+        run: npm run check:peer-range
 
       - name: Pack (dry run — nothing is published)
         working-directory: plugin
