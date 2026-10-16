@@ -139,7 +139,7 @@ conclusion, read as what it said rather than as verified fact:**
 ## The part that did not work, which matters more than the part that did
 
 With the *bare* prompt — `"Continue the unfinished work in this project."` — the
-agent **never called a single sessionFlow tool**. Twice:
+agent **never called a single sessionFlow tool**. Repeatedly:
 
 | run | prompt | sessionFlow calls | outcome |
 |---|---|---|---|
@@ -166,6 +166,19 @@ unfinished" — it invented work. The prompt that worked is the one that names t
 That is a real finding about discovery, not a plugin defect, and it is recorded
 here rather than smoothed over: **"continue" alone is not enough of a cue.**
 Making the tools fire on the bare prompt is open work.
+
+> **Corrected by P13.** The conclusion drawn here — that the working prompt had
+> to name the *question* rather than the *action* — does not survive a
+> controlled experiment. Prompt B in the table above
+> (`"Continue the unfinished Codex work in this project."`) is an *action*
+> prompt, and under P13's controls it retrieves history in **3 of 3** runs. The
+> rows above that reported 0 calls were measured against the *earlier* demo
+> fixture, whose source still carried visible `TODO(codex)` comments — so the
+> repository already showed what was left, and retrieving history was
+> unnecessary. The real variable was **whether the repo already revealed the
+> work**, not the shape of the sentence. See
+> [`docs/p13-agent-discovery.md`](p13-agent-discovery.md) for the controlled
+> data and for the description change that was tried and reverted.
 
 ## Reproducing this
 
