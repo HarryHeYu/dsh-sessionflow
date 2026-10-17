@@ -119,8 +119,14 @@ test('an older core is reported as INCOMPATIBLE with an update hint', async () =
     () => mod.assertCompatible({ schema_version: 0 }),
     (e) => {
       assert.equal(e.code, 'INCOMPATIBLE');
-      assert.match(e.message, /git pull|pip install -e/,
-        'the update hint must describe the source install');
+      // The message names the real problem; the detail must carry the install
+      // command, and it must be the pinned non-editable one rather than the
+      // developer's `git pull && pip install -e .`.
+      assert.match(e.message, /bridge schema 0/);
+      assert.match(e.detail ?? '', /voyager\[all\] @ git\+/,
+        'the update hint must give the pinned install command');
+      assert.doesNotMatch(e.detail ?? '', /pip install -e/,
+        'the update hint must not point at an editable developer install');
       return true;
     },
   );
@@ -153,4 +159,110 @@ test('the plugin never builds a shell string', () => {
   assert.doesNotMatch(src, /shell:\s*true/, 'bridge.ts must not use shell: true');
   assert.doesNotMatch(src, /\bexec\(/, 'bridge.ts must not use exec()');
   void spawn;
+});
+
+// --- the two failure modes that must not be confused -------------------------
+
+/** A regex matching the pinned, non-editable install command. */
+const PINNED_INSTALL = /voyager\[all\] @ git\+/;
+
+test('an installed-but-too-old core is NOT reported as "not installed"', async () => {
+  // The defect this pins.  Every candidate failure used to collapse into
+  // VOYAGER_NOT_FOUND, so a user with a working-but-old core was told nothing
+  // was installed and sent to reinstall what they already have.  The binary
+  // exists and answers here, so the resolver must say "found but unusable".
+  const mod = await import(new URL('file://' + BRIDGE).href);
+  const node = process.execPath;                       // a real executable
+  const fixture = path.join(REPO, 'tests', 'fixtures', 'stub-oldcore.mjs');
+
+  mod.resetBridgeCache();
+  try {
+    await assert.rejects(
+      () => mod.resolveVoyager({
+        // A configured core is the strictest path: no PATH fallback at all.
+        voyagerBin: node,
+        voyagerArgs: [fixture],
+        python: path.join(tmpRoot(), 'nope-python.exe'),
+      }),
+      (e) => {
+        assert.equal(e.code, 'INCOMPATIBLE',
+          `an installed core must not be reported as ${e.code}`);
+        assert.match(e.message, /bridge schema 0/,
+          'the message must name the schema the old core reports');
+        assert.match(e.detail ?? '', PINNED_INSTALL,
+          'the fix must describe the pinned, non-editable install');
+        return true;
+      },
+    );
+
+    // The same options through a real op also fail loudly: integrationInfo
+    // resolves the command first, so it inherits the refusal.
+    await assert.rejects(
+      () => mod.integrationInfo({ voyagerBin: node, voyagerArgs: [fixture] }),
+      (e) => {
+        assert.equal(e.code, 'INCOMPATIBLE');
+        return true;
+      },
+    );
+  } finally {
+    mod.resetBridgeCache();
+  }
+});
+
+test('the missing-core hint gives the pinned install, never an editable one', async () => {  const mod = await import(new URL('file://' + BRIDGE).href);
+  const saved = process.env['PATH'];
+  delete process.env['VOYAGER_BIN'];
+  delete process.env['VOYAGER_PYTHON'];
+  process.env['PATH'] = tmpRoot();
+  mod.resetBridgeCache();
+  try {
+    await assert.rejects(
+      () => mod.resolveVoyager({ python: path.join(tmpRoot(), 'nope-python.exe') }),
+      (e) => {
+        assert.equal(e.code, 'VOYAGER_NOT_FOUND');
+        assert.match(e.message, PINNED_INSTALL,
+          'the hint must pin the core to a ref so a reinstall is reproducible');
+        assert.doesNotMatch(e.message, /pip install -e/,
+          'an editable install is a developer path; users must not be told to use it');
+        return true;
+      },
+    );
+  } finally {
+    if (saved !== undefined) process.env['PATH'] = saved;
+    mod.resetBridgeCache();
+  }
+});
+
+// --- the candidate-loop classification, tested directly ----------------------
+// The PATH loop cannot carry a fake core on Windows without `shell: true` (which
+// the bridge is not allowed to use), so the classification is exported and tested
+// as a function.  Without this the loop's branch is only covered by a real
+// install.
+
+/** The resolver's own aggregation, reached without spawning anything. */
+async function unresolvedCoreError(failures: Array<{
+  ok: false; found: boolean; reason: string;
+}>): Promise<Error & { code: string; detail?: string }> {
+  const mod = await import(new URL('file://' + BRIDGE).href);
+  return mod.unresolvableCoreError(failures) as never;
+}
+
+test('a refused core in the candidate loop is reported as a version problem', async () => {
+  const absent = { ok: false as const, found: false, reason: 'no such file' };
+  const tooOld = {
+    ok: false as const, found: true,
+    reason: '`voyager` reports bridge schema 0, but this plugin needs 1',
+  };
+
+  const onlyAbsent = await unresolvedCoreError([absent, absent]);
+  assert.equal(onlyAbsent.code, 'VOYAGER_NOT_FOUND',
+    'when nothing was found, "not installed" is the honest answer');
+
+  const mixed = await unresolvedCoreError([absent, tooOld, absent]);
+  assert.equal(mixed.code, 'INCOMPATIBLE',
+    'a core that answered and was refused must not be reported as missing');
+  assert.match(mixed.message, /bridge schema 0/,
+    'the message must carry the reason the core was refused');
+  assert.match(mixed.detail ?? '', PINNED_INSTALL,
+    'the detail must carry the pinned install');
 });

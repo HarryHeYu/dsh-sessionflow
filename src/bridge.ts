@@ -20,6 +20,30 @@ import { spawn } from 'node:child_process';
 /** Bridge schema this plugin was written against (`integration-info.schema_version`). */
 export const REQUIRED_SCHEMA_VERSION = 1;
 
+/**
+ * The sessionFlow core this plugin's release was verified against, as a git ref.
+ *
+ * The core has no releases and its distribution is not on PyPI (the `voyager`
+ * name there belongs to an unrelated library), so there is no version string to
+ * pin against -- a commit is the only stable, reproducible identifier.  Bumping
+ * this is the compatibility contract: it is what `voyager[all] @ git+<url>@<ref>`
+ * resolves to in the install command shown to users.
+ */
+export const REQUIRED_CORE_REF = 'f2a6445';
+
+/**
+ * The one-line install for a user who does not have the core.  Non-editable and
+ * ref-pinned on purpose: `pip install -e .` after a `git clone` is a developer
+ * path, and it is also what makes the install unreproducible.
+ */
+export const CORE_INSTALL_HINT =
+  `Install it with the version this plugin was tested against:\n` +
+  `    python -m pip install "voyager[all] @ ` +
+  `git+https://github.com/HarryHeYu/sessionFlow.git@${REQUIRED_CORE_REF}"\n` +
+  `Then run \`voyager scan\` to build the index. (The distribution is still ` +
+  `named \`voyager\`, so a bare \`pip install voyager\` would install an ` +
+  `unrelated library -- always keep the \`@ git+…\` part.)`;
+
 const DEFAULT_TIMEOUT_MS = 20_000;
 
 /**
@@ -204,32 +228,62 @@ function run(cmd: VoyagerCommand, args: string[], opts: BridgeOptions,
 }
 
 /**
- * Prove one candidate works.  Returns `null` when it does, otherwise the reason
- * it was rejected, so the caller can say *why* rather than "not found".
+ * Why one candidate command could not be used.
+ *
+ * `found` carries the distinction the resolver needs: `true` means "this
+ * command exists and answered, and the plugin refused it" (bridge schema too
+ * old, or no `schema_version` at all); `false` means "this command could not be
+ * run at all".  Without it the resolver only knows that every candidate failed,
+ * and reports "not installed" to a user who plainly has a core installed.
  */
-async function probe(cmd: VoyagerCommand, opts: BridgeOptions): Promise<string | null> {
+export interface ProbeFailure {
+  ok: false;
+  reason: string;
+  found: boolean;
+}
+
+export type ProbeResult = { ok: true } | ProbeFailure;
+
+/**
+ * Prove one candidate works.  Returns `{ ok: true }` when it does, otherwise a
+ * {@link ProbeFailure} explaining *why* it was rejected, so the caller can name
+ * the real problem instead of saying "not found".
+ */
+async function probe(cmd: VoyagerCommand, opts: BridgeOptions): Promise<ProbeResult> {
   const shown = [cmd.command, ...cmd.prefixArgs].join(' ');
   try {
     const { stdout, stderr, code } = await run(cmd, ['integration-info', '--json'],
       { ...opts, timeoutMs: Math.max(opts.timeoutMs ?? PROBE_TIMEOUT_MS, PROBE_TIMEOUT_MS) });
     if (code !== 0) {
       const why = (stderr.trim().split(/\r?\n/).find((l) => l.trim().length > 0) ?? '').slice(0, 200);
-      return `\`${shown} integration-info\` exited ${code}${why ? `: ${why}` : ''}`;
+      return {
+        ok: false, found: false,
+        reason: `\`${shown} integration-info\` exited ${code}${why ? `: ${why}` : ''}`,
+      };
     }
     const info = JSON.parse(stdout.trim()) as IntegrationInfo;
     // A core that answers but is too old must NOT be selected: caching it would
     // pin the whole process to a binary every tool then rejects.
     if (typeof info.schema_version !== 'number') {
-      return `\`${shown}\` answered without a schema_version`;
+      return {
+        ok: false, found: true,
+        reason: `\`${shown}\` answered without a schema_version`,
+      };
     }
     if (info.schema_version < REQUIRED_SCHEMA_VERSION) {
-      return `\`${shown}\` reports bridge schema ${info.schema_version}, ` +
-             `but this plugin needs ${REQUIRED_SCHEMA_VERSION}`;
+      return {
+        ok: false, found: true,
+        reason: `\`${shown}\` reports bridge schema ${info.schema_version}, ` +
+                `but this plugin needs ${REQUIRED_SCHEMA_VERSION}`,
+      };
     }
-    return null;
+    return { ok: true };
   } catch (e) {
-    return `\`${shown}\` could not be started or timed out: ` +
-           `${e instanceof Error ? e.message : String(e)}`;
+    return {
+      ok: false, found: false,
+      reason: `\`${shown}\` could not be started or timed out: ` +
+              `${e instanceof Error ? e.message : String(e)}`,
+    };
   }
 }
 
@@ -288,34 +342,69 @@ async function resolveVoyagerUncached(opts: BridgeOptions,
     // it exists so the type checker can see `first` is defined.
     throw new VoyagerError('VOYAGER_NOT_FOUND', 'no candidate command to probe');
   }
-  const firstReason = await probe(first, opts);
-  if (firstReason === null) {
+  const firstProbe = await probe(first, opts);
+  if (firstProbe.ok) {
     cachedCommand = first;
     cachedKey = key;
     return first;
   }
   if (bin) {
+    // An explicit `voyagerBin` was named and it did not work.  Report *which*
+    // problem it is, and do not silently fall back to another core: the one on
+    // PATH may index a different database, so "it works now" would be a lie.
+    // A core that answered and was refused for its schema is a version problem,
+    // not a missing one.
+    if (firstProbe.found) {
+      throw new VoyagerError('INCOMPATIBLE',
+        `the configured sessionFlow/Voyager core cannot be used: ${firstProbe.reason}`,
+        CORE_INSTALL_HINT);
+    }
     throw new VoyagerError('VOYAGER_NOT_FOUND',
-      `the configured sessionFlow/Voyager executable does not work: ${firstReason}`,
+      `the configured sessionFlow/Voyager executable does not work: ${firstProbe.reason}`,
       `Refusing to fall back to another \`voyager\` on PATH: it may index ` +
       `different sessions than the one you configured. Fix the path, or ` +
       `remove \`voyagerBin\` (and \`VOYAGER_BIN\`) to let the plugin discover ` +
       `the core from PATH.`);
   }
 
+  const failures: ProbeFailure[] = [firstProbe];
   for (const cmd of rest) {
-    if (await probe(cmd, opts) === null) {
+    const r = await probe(cmd, opts);
+    if (r.ok) {
       cachedCommand = cmd;
       cachedKey = key;
       return cmd;
     }
+    failures.push(r);
   }
-  throw new VoyagerError('VOYAGER_NOT_FOUND',
-    'sessionFlow/Voyager is not installed or not on PATH. Install it from ' +
-    'source: `git clone https://github.com/HarryHeYu/sessionFlow && cd ' +
-    'sessionFlow && pip install -e .`, then restart DSH. It is not on PyPI -- ' +
-    'the `voyager` name there belongs to an unrelated library. ' +
-    'If it is installed elsewhere, set VOYAGER_BIN to the executable path.');
+  throw unresolvableCoreError(failures);
+}
+
+/**
+ * Every candidate failed.  Say which it was: a core that *exists* but the plugin
+ * refuses is a version problem with a different fix, and telling that user
+ * "not installed" sends them to reinstall something they already have.
+ *
+ * Exported so the classification is unit-testable: the candidate list cannot
+ * carry a fake core without a shell on Windows, which would leave the branch
+ * untested except through a real install.
+ */
+export function unresolvableCoreError(failures: ProbeFailure[]): VoyagerError {
+  const present = failures.find((f) => f.found);
+  if (present) {
+    return new VoyagerError('INCOMPATIBLE',
+      `a sessionFlow/Voyager core was found but this plugin cannot use it: ${present.reason}`,
+      `This plugin needs bridge schema ${REQUIRED_SCHEMA_VERSION} or newer. ` +
+      `Update the core to a compatible commit and reinstall:\n` +
+      `    python -m pip install --upgrade "voyager[all] @ ` +
+      `git+https://github.com/HarryHeYu/sessionFlow.git"\n` +
+      `Then run \`voyager doctor\` to confirm the bridge schema it reports.`);
+  }
+  return new VoyagerError('VOYAGER_NOT_FOUND',
+    'sessionFlow/Voyager is not installed or not on PATH. ' + CORE_INSTALL_HINT +
+    ' If it is installed somewhere the probe cannot see, set VOYAGER_BIN to ' +
+    'the executable path.',
+    `What was tried: ${failures.map((f) => f.reason).join('; ')}`);
 }
 
 /**
@@ -379,7 +468,7 @@ export function assertCompatible(info: IntegrationInfo): void {
   if (info.schema_version < REQUIRED_SCHEMA_VERSION) {
     throw new VoyagerError('INCOMPATIBLE',
       `sessionFlow bridge schema ${info.schema_version} is older than the ` +
-      `${REQUIRED_SCHEMA_VERSION} this plugin needs. Update the source ` +
-      'checkout and reinstall (`git pull && pip install -e .`).');
+      `${REQUIRED_SCHEMA_VERSION} this plugin needs. Update the core to ` +
+      `${REQUIRED_CORE_REF} or newer:`, CORE_INSTALL_HINT);
   }
 }

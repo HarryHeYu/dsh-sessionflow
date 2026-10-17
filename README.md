@@ -93,33 +93,71 @@ all, including when the next agent has no way to resume the previous one.
   host's configuration, not this plugin's: **this plugin does not provide model
   access** and cannot work around a missing provider. Set up the provider
   before installing anything here.
-- [sessionFlow / Voyager](https://github.com/HarryHeYu/sessionFlow), installed
-  **from source** and indexed. It is not published to PyPI — the `voyager` name
-  on PyPI belongs to an unrelated nearest-neighbour library, so `pip install
-  voyager` will install the wrong project.
+- [sessionFlow / Voyager](https://github.com/HarryHeYu/sessionFlow) — **a
+  separate, standalone dependency**. This plugin is a thin DSH adapter and ships
+  no Python core of its own. Without the core the six tools still register, and
+  every call fails with a message naming the install command.
 - Node.js **22.19+**
 
 So there are two independent dependencies: DSH needs a model provider to run at
 all, and this plugin needs the sessionFlow core to answer anything. The plugin
 adds no third one.
 
+The core is not on PyPI: the `voyager` name there belongs to an unrelated
+nearest-neighbour library, so a bare `pip install voyager` installs the wrong
+project. Always keep the `@ git+…` part of the command in the quick install
+below.
+
+### Compatibility
+
+The plugin pins the core commit it was tested against. Newer should work; older
+is refused by name rather than misbehaving silently.
+
+| plugin | core commit | bridge schema |
+|---|---|---|
+| **1.1.0** | `f2a6445` | `1` |
+
+The bridge schema is what actually gates the call; `REQUIRED_SCHEMA_VERSION` in
+`src/bridge.ts` is the value.
+
 ## Install
 
-Both pieces are installed from their Git repositories. Neither is published to
-PyPI or npm, so there is no `pipx install` / `dsh plugin add <name>` one-liner
-that works today.
+Neither piece is published to PyPI or npm, so there is no `pipx install` /
+`dsh plugin add <name>` one-liner that works today.
+
+### Quick install
+
+The core first, pinned to the commit this release was tested against:
 
 ```sh
-# 1. the core, from source
-git clone https://github.com/HarryHeYu/sessionFlow
-cd sessionFlow
-pip install -e .
-voyager scan
+python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@f2a6445"
+voyager scan          # build the index from your real agent history
+voyager doctor        # confirm the core runs and reports bridge schema 1
+```
 
-# 2. this plugin, straight from GitHub
+Then the plugin:
+
+```sh
 dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow
 dsh --profile web
 ```
+
+`python -m pip` is deliberate: on Windows `pip` is often not on `PATH` while
+`python` is. The install is non-editable and pinned, so reinstalling reproduces
+the same build — which a `git clone` plus `pip install -e .` does not.
+
+### Working on the core itself
+
+Developing against a checkout instead of an installed core:
+
+```sh
+git clone https://github.com/HarryHeYu/sessionFlow
+cd sessionFlow && pip install -e .
+voyager scan
+```
+
+That is a developer path. It is not what the quick install does, and it is not
+what the plugin's error messages recommend.
 
 pnpm blocks build scripts for git-hosted packages until you allow them, so the
 first `add` will stop and print the exact key it wants. Put that key in the
