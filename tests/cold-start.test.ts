@@ -78,6 +78,11 @@ test('every tool carries a distinct sessionflow_ name and a description', async 
   assert.equal(new Set(names).size, 6, `duplicate tool names: ${names.join(', ')}`);
 });
 
+/** What a user is shown: describeError() joins message and detail. */
+function shown(e: { message: string; detail?: string }): string {
+  return e.detail ? `${e.message}\n${e.detail}` : e.message;
+}
+
 test('a missing core is reported as VOYAGER_NOT_FOUND, pointing at the repo', async () => {
   const mod = await import(new URL('file://' + BRIDGE).href);
   const saved = process.env['PATH'];
@@ -98,9 +103,9 @@ test('a missing core is reported as VOYAGER_NOT_FOUND, pointing at the repo', as
       }),
       (e) => {
         assert.equal(e.code, 'VOYAGER_NOT_FOUND', `unexpected code: ${e.code}`);
-        assert.match(e.message, /github\.com\/HarryHeYu\/sessionFlow/,
+        assert.match(shown(e), /github\.com\/HarryHeYu\/sessionFlow/,
           'the install hint must point at the sessionFlow repository');
-        assert.doesNotMatch(e.message, /pipx/i,
+        assert.doesNotMatch(shown(e), /pipx/i,
           'the hint must not suggest pipx: PyPI\'s `voyager` is another project');
         return true;
       },
@@ -220,9 +225,9 @@ test('the missing-core hint gives the pinned install, never an editable one', as
       () => mod.resolveVoyager({ python: path.join(tmpRoot(), 'nope-python.exe') }),
       (e) => {
         assert.equal(e.code, 'VOYAGER_NOT_FOUND');
-        assert.match(e.message, PINNED_INSTALL,
+        assert.match(shown(e), PINNED_INSTALL,
           'the hint must pin the core to a ref so a reinstall is reproducible');
-        assert.doesNotMatch(e.message, /pip install -e/,
+        assert.doesNotMatch(shown(e), /pip install -e/,
           'an editable install is a developer path; users must not be told to use it');
         return true;
       },
@@ -265,4 +270,38 @@ test('a refused core in the candidate loop is reported as a version problem', as
     'the message must carry the reason the core was refused');
   assert.match(mixed.detail ?? '', PINNED_INSTALL,
     'the detail must carry the pinned install');
+});
+
+test('a core installed into an inactive venv is not told to reinstall', async () => {
+  // The reproducible case: the documented install command is `python -m pip
+  // install "voyager[all] @ git+…"`, which most users run inside a virtualenv.
+  // The console script then lands in <venv>/Scripts (Windows) or <venv>/bin
+  // (POSIX) -- not on PATH, and so is that venv's Python.  Every probe fails,
+  // but the core *is* installed.  The old message named the install command
+  // first, so the actionable reading was "install it again".
+  const mod = await import(new URL('file://' + BRIDGE).href);
+  const notOnPath = { ok: false, found: false, reason: `'voyager' is not on PATH` };
+  const pythonAbsent = {
+    ok: false, found: false,
+    reason: `'python -m voyager.cli' could not be started or timed out: not found`,
+  };
+
+  const e = mod.unresolvableCoreError([notOnPath, notOnPath, pythonAbsent]);
+  assert.equal(e.code, 'VOYAGER_NOT_FOUND');
+
+  const detail = e.detail ?? '';
+  // The venv/PATH cause must be named, with the env var that fixes it.
+  assert.match(detail, /virtualenv/);
+  assert.match(detail, /<venv>\/Scripts \(Windows\) or <venv>\/bin \(POSIX\)/,
+    'the venv layout differs per platform and the message must say both');
+  assert.match(detail, /VOYAGER_BIN=/,
+    'the fix must name the override that points straight at the binary');
+  assert.match(detail, /activate the venv/,
+    'activating the venv is the other fix and must be offered');
+
+  // The install command is still available -- but as the second cause, not the
+  // first thing the user reads.
+  assert.match(detail, /voyager\[all\] @ git\+/, 'the install hint is still there');
+  assert.ok(detail.indexOf('virtualenv') < detail.indexOf('voyager[all]'),
+    'the "installed but invisible" cause must come before the reinstall hint');
 });

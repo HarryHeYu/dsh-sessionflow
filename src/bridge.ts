@@ -400,11 +400,23 @@ export function unresolvableCoreError(failures: ProbeFailure[]): VoyagerError {
       `git+https://github.com/HarryHeYu/sessionFlow.git"\n` +
       `Then run \`voyager doctor\` to confirm the bridge schema it reports.`);
   }
+  // Nothing was found.  The install hint comes last on purpose: the most common
+  // reason for this message on a machine where the user *did* follow the install
+  // command is that they ran it inside a virtualenv, whose `Scripts` (Windows)
+  // or `bin` (POSIX) directory is not on PATH -- so the console script exists
+  // but is invisible, and so is that venv's Python.  Telling that user to
+  // install again is wrong, so the two causes are separated and each gets its
+  // own fix.
   return new VoyagerError('VOYAGER_NOT_FOUND',
-    'sessionFlow/Voyager is not installed or not on PATH. ' + CORE_INSTALL_HINT +
-    ' If it is installed somewhere the probe cannot see, set VOYAGER_BIN to ' +
-    'the executable path.',
-    `What was tried: ${failures.map((f) => f.reason).join('; ')}`);
+    'sessionFlow/Voyager is not reachable from this DSH process. Either it is ' +
+    'not installed, or it is installed where this process cannot see it.',
+    `What was tried: ${failures.map((f) => f.reason).join('; ')}\n\n` +
+    `If you installed it into a virtualenv and that venv is not active here, ` +
+    `the console script is in <venv>/Scripts (Windows) or <venv>/bin (POSIX), ` +
+    `which is not on this process's PATH. Point at it directly:\n` +
+    `    VOYAGER_BIN=/full/path/to/voyager\n` +
+    `or activate the venv before starting DSH.\n\n` +
+    `If it really is not installed:\n${CORE_INSTALL_HINT}`);
 }
 
 /**

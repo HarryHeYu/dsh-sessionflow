@@ -156,6 +156,11 @@ function callOp<T>(op: string, params: Record<string, unknown>,
 
 // --- mechanics --------------------------------------------------------------
 
+/** What a user is shown: describeError() joins message and detail. */
+function shown(e: VoyagerError): string {
+  return e.detail ? `${e.message}\n${e.detail}` : e.message;
+}
+
 test('a missing core points at the source install, never at pipx', async () => {
   const saved = process.env['PATH'];
   process.env['PATH'] = '';
@@ -168,11 +173,11 @@ test('a missing core points at the source install, never at pipx', async () => {
       (e: unknown) =>
         e instanceof VoyagerError &&
         e.code === 'VOYAGER_NOT_FOUND' &&
-        // The message must point at the source install: the `voyager` name on
+        // What the user sees is message + detail, so the hint may sit in either.
         // PyPI is an unrelated library, so a pipx hint would send the user to
         // the wrong project.
-        /github\.com\/HarryHeYu\/sessionFlow/.test(e.message) &&
-        !/pipx/.test(e.message),
+        /github\.com\/HarryHeYu\/sessionFlow/.test(shown(e)) &&
+        !/pipx/.test(shown(e)),
     );
   } finally {
     if (saved !== undefined) process.env['PATH'] = saved;
