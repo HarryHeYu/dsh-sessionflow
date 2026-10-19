@@ -115,16 +115,14 @@ is refused by name rather than misbehaving silently.
 
 | plugin | core commit | bridge schema |
 |---|---|---|
-| **1.1.0** | `8d36757` | `1` |
+| **1.1.0** | `v1.2.0` | `1` |
 
 The bridge schema is what actually gates the call; `REQUIRED_SCHEMA_VERSION` in
 `src/bridge.ts` is the value.
 
-> **The core commit is ahead of its own release.** The last sessionFlow release
-> is v1.1.0 (2026-10-11); `8d36757` is unreleased work after it, and it is what
-> the pinned command below installs. That build's `--version` still prints
-> `1.1.0`, which is a version-string lag, not a mismatch — the bridge schema,
-> which is what the plugin actually checks, is unchanged at `1`.
+> **Core v1.2.0 is released and is what the pin below installs.** It is tested
+> against plugin v1.1.0: the six tools and the bridge schema (`1`) are
+> unchanged, so no plugin upgrade is needed.
 
 ## Install
 
@@ -136,7 +134,7 @@ Neither piece is published to PyPI or npm, so there is no `pipx install` /
 The core first, pinned to the commit this release was tested against:
 
 ```sh
-python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@8d36757"
+python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.2.0"
 voyager scan          # build the index from your real agent history
 voyager doctor        # confirm the core runs and reports bridge schema 1
 ```
