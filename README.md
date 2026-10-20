@@ -115,14 +115,17 @@ is refused by name rather than misbehaving silently.
 
 | plugin | core commit | bridge schema |
 |---|---|---|
-| **1.1.0** | `v1.2.0` | `1` |
+| **1.1.0** | `v1.3.0` | `1` |
 
 The bridge schema is what actually gates the call; `REQUIRED_SCHEMA_VERSION` in
 `src/bridge.ts` is the value.
 
-> **Core v1.2.0 is released and is what the pin below installs.** It is tested
+> **Core v1.3.0 is released and is what the pin below installs.** It is tested
 > against plugin v1.1.0: the six tools and the bridge schema (`1`) are
-> unchanged, so no plugin upgrade is needed.
+> unchanged, so no plugin upgrade is needed.  v1.3.0 adds evidence references
+> inside bundle text and a new `voyager evidence` subcommand -- additive only;
+> the plugin passes bundle text through and does not parse it, which is why it
+> needs no change.
 
 ## Install
 
@@ -134,7 +137,7 @@ Neither piece is published to PyPI or npm, so there is no `pipx install` /
 The core first, pinned to the commit this release was tested against:
 
 ```sh
-python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.2.0"
+python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.0"
 voyager scan          # build the index from your real agent history
 voyager doctor        # confirm the core runs and reports bridge schema 1
 ```
