@@ -15,7 +15,7 @@ supported agents using [sessionFlow](https://github.com/HarryHeYu/sessionFlow).
 | **Why use it** | Work started in Codex, Claude Code, Grok or ZCode does not have to stop at the agent boundary — pick it back up inside DSH with the goal, files, commands and open items intact. |
 | **Install** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` — [details](#install). Needs a working model provider **and** the sessionFlow core. |
 | **Try it** | Ask in plain language: *"Continue the work I was doing in Claude Code on this repo."* Full walkthrough: [5-minute Quick Start](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md). |
-| **Current release** | [v1.1.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.1.0) · DSH 0.1.5-rc.3 and 0.2.0-rc.2 · Node ≥ 22.19 · bridge schema 1 |
+| **Current release** | [v1.1.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.1.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 (tool calls answered) · Node ≥ 22.19 · bridge schema 1 |
 | **Privacy** | Local only. No account, no telemetry, no network calls — [boundary](#what-stays-local) |
 | **Known limitation** | Native resume by an agent is **not verified** — see [verification status](#verification-status) |
 
@@ -108,17 +108,27 @@ nearest-neighbour library, so a bare `pip install voyager` installs the wrong
 project. Always keep the `@ git+…` part of the command in the quick install
 below.
 
-### Compatibility
+### Core compatibility
 
-The plugin pins the core commit it was tested against. Newer should work; older
-is refused by name rather than misbehaving silently.
+The plugin is tested against a specific core release. Newer cores should work;
+an older one is refused by name rather than misbehaving silently.
 
-| plugin | core commit | bridge schema |
+| plugin | core | bridge schema |
 |---|---|---|
 | **1.1.0** | `v1.3.0` | `1` |
 
-The bridge schema is what actually gates the call; `REQUIRED_SCHEMA_VERSION` in
-`src/bridge.ts` is the value.
+**The two repos are versioned independently** — plugin `1.1.0` against core
+`1.3.0` is the current, correct pairing, and the numbers are not meant to match.
+What binds them is the **bridge schema**: `REQUIRED_SCHEMA_VERSION` in
+`src/bridge.ts` is the value the plugin demands, and `voyager integration-info
+--json` is where the core reports it.
+
+What that compatibility rests on: the six tools are verified by **non-model
+contract tests** (input → bridge call → result formatting) against a real core
+on a seeded index. Model-driven *selection* of those tools has been observed in
+recorded real-model runs, but there is **no repeatable end-to-end suite** for it —
+see [verification status](#verification-status) and the prompt-shape note at the
+top. Do not read "the tools work" as "the model will always reach for them".
 
 > **Core v1.3.0 is released and is what the pin below installs.** It is tested
 > against plugin v1.1.0: the six tools and the bridge schema (`1`) are
@@ -129,18 +139,41 @@ The bridge schema is what actually gates the call; `REQUIRED_SCHEMA_VERSION` in
 
 ## Install
 
-Neither piece is published to PyPI or npm, so there is no `pipx install` /
-`dsh plugin add <name>` one-liner that works today.
+Two pieces, two different channels — there is no single command, and one of them
+is deliberately not on a package registry:
+
+| | Where it comes from | Install |
+|---|---|---|
+| **Core** — sessionFlow | a **GitHub tag**; not on PyPI | `pipx install "voyager[all] @ git+…@v1.3.0"` |
+| **Plugin** — this repo | **DSH's plugin mechanism**; not on npm | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` |
+
+Install the core first: without it the six tools still register, but every call
+fails with a message naming the missing binary.
+
+Two things people get wrong here:
+
+- **`pip install voyager` installs the wrong project.** That PyPI name belongs to
+  an unrelated nearest-neighbour library. The core is not published to PyPI, so
+  the `@ git+…` form below is the only correct one. `pipx` is the recommended
+  runner because it keeps the CLI in its own environment — the tag install is
+  what makes a reinstall reproducible.
+- **The plugin is not an npm package.** `dsh plugin add dsh-sessionflow` finds
+  nothing; use the `github:` specifier.
 
 ### Quick install
 
-The core first, pinned to the commit this release was tested against:
+The core first, pinned to the release this plugin version was tested against:
 
 ```sh
-python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.0"
+pipx install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.0"
+voyager --version     # must print 1.3.0
 voyager scan          # build the index from your real agent history
 voyager doctor        # confirm the core runs and reports bridge schema 1
 ```
+
+No `pipx`? `python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.0"`
+works too. `python -m pip` is deliberate: on Windows `pip` is often not on `PATH`
+while `python` is.
 
 Then the plugin:
 
@@ -149,9 +182,8 @@ dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow
 dsh --profile web
 ```
 
-`python -m pip` is deliberate: on Windows `pip` is often not on `PATH` while
-`python` is. The install is non-editable and pinned, so reinstalling reproduces
-the same build — which a `git clone` plus `pip install -e .` does not.
+The install is non-editable and pinned, so reinstalling reproduces the same
+build — which a `git clone` plus `pip install -e .` does not.
 
 ### Working on the core itself
 
@@ -260,7 +292,7 @@ Override it in the profile patch:
 If the core is missing, the tools fail with an actionable message rather than
 an empty result.
 
-## Compatibility
+## DSH host compatibility
 
 Stated per channel, and at the level actually reached. The peer ranges admit the
 `0.1.5` / `0.1.6` / `0.1.7` and `0.2.x` prerelease lines; how far each was taken
@@ -351,10 +383,10 @@ input → bridge call → result formatting, nothing else:
 | dsh-sessionflow | `37e4317` |
 
 Verification for this closure is **automated contract tests only**
-(`npm test`: 23 passed, `npm run build`: clean).  The LIVE VERIFIED rows
-above are the historical real-agent run and are *not* re-claimed by this
-closure; a live DSH rerun was not required because no public contract
-changed since that run.
+(`npm test`: 23 passed at the time; the suite is 54 today, `npm run build`:
+clean).  The LIVE VERIFIED rows above are the historical real-agent run and are
+*not* re-claimed by this closure; a live DSH rerun was not required because no
+public contract changed since that run.
 
 Environment used: `@deepseek-ai/dsh` 0.1.5-rc.3, `@deepseek-ai/cordis` 4.0.2,
 Node 22.22.2, Windows.
@@ -368,7 +400,7 @@ The core is missing or not on `PATH`. Check it directly:
 voyager --version
 ```
 
-If that fails, install the core from source (see [Install](#install)) and make
+If that fails, install the core (see [Install](#install)) and make
 sure the interpreter that provides the `voyager` entry point is the one DSH
 inherits. The error text names the binary it tried to run.
 
@@ -437,7 +469,7 @@ proposition is that your coding history does not leave your machine.
 ```sh
 npm install
 npm run build     # tsc -> lib/
-npm test          # build, then node --test — 50 tests (bridge mechanics + live core)
+npm test          # build, then node --test — 54 tests (bridge mechanics + live core)
 ```
 
 `tests/bridge.test.ts` covers resolution, timeouts, malformed JSON, non-zero

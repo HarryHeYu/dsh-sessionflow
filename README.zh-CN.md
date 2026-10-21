@@ -15,7 +15,7 @@ Codex、Claude Code 等受支持 Agent 中做过的工作。
 | **为什么用** | 在 Codex / Claude Code / Grok / ZCode 里开始的工作不必停在 Agent 边界——可以在 DSH 里接着做，目标、文件、命令和未完成事项都还在。 |
 | **安装** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` —— [详见](#安装)。需要可用的模型 provider **以及** sessionFlow core。 |
 | **试用** | 直接用自然语言说：*"继续我之前在 Claude Code 里对这个仓库做的工作。"* 完整流程见 [5 分钟上手指南](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md)。 |
-| **当前版本** | [v1.1.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.1.0) · DSH 0.1.5-rc.3 · Node ≥ 22.19 · bridge schema 1 |
+| **当前版本** | [v1.1.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.1.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4（工具调用已跑通）· Node ≥ 22.19 · bridge schema 1 |
 | **已知限制** | 由 Agent 发起的 native resume **尚未**验证 —— 见 [验证状态](#验证状态) |
 
 不是"又一个 session 管理器"，而是把 sessionFlow 的接续层以六个 tool 的形式提供给 DSH。
@@ -58,9 +58,10 @@ Kiro ────────┘
   `MISSING_CREDENTIAL: … no API key for provider route`。那属于**宿主的配置**，
   不是本插件的问题：**本插件不提供模型访问能力**，也无法绕过一个缺失的 provider。
   请先把 provider 配好，再装这里的东西。
-- [sessionFlow / Voyager](https://github.com/HarryHeYu/sessionFlow)，
-  **从源码安装**并建好索引。它**没有发布到 PyPI** —— PyPI 上的 `voyager`
-  是一个毫不相干的最近邻搜索库，`pip install voyager` 会装错项目。
+- [sessionFlow / Voyager](https://github.com/HarryHeYu/sessionFlow) ——
+  **一个独立的外部依赖**，从**它的 GitHub tag** 安装并建好索引。本插件是薄适配层，
+  自带零 Python 核心。它**没有发布到 PyPI**：PyPI 上的 `voyager` 是一个毫不相干的
+  最近邻搜索库，裸跑 `pip install voyager` 会装错项目。
 - Node.js **22.19+**
 
 也就是说这里有**两个彼此独立**的依赖：DSH 需要模型 provider 才能运行，本插件需要
@@ -68,20 +69,37 @@ sessionFlow core 才能回答任何问题。本插件不会引入第三个。
 
 ## 安装
 
-两部分都从各自的 Git 仓库安装。它们都没有发布到 PyPI 或 npm，
-所以今天**没有**能用的 `pipx install` / `dsh plugin add <包名>` 一行命令。
+两部分走**不同的渠道**，没有一条命令能同时装好；而且其中一件是**故意**不上包管理器的：
+
+| | 来自哪里 | 安装 |
+|---|---|---|
+| **核心** — sessionFlow | **GitHub tag**；不在 PyPI | `pipx install "voyager[all] @ git+…@v1.3.0"` |
+| **插件** — 本仓库 | **DSH 的插件机制**；不在 npm | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` |
+
+先装核心：没有它，六个工具照样注册，但每次调用都会失败并指名缺的那个二进制。
+
+两个常见误解：
+
+- **`pip install voyager` 装的是别的项目。** 那个 PyPI 名字属于一个毫不相干的
+  最近邻搜索库；核心尚未发布到 PyPI，所以下面这条 `@ git+…` 是唯一正确的形式。
+  推荐用 `pipx`，它把 CLI 装在独立环境里；而 tag 安装才是可复现的。
+- **插件不是 npm 包。** `dsh plugin add dsh-sessionflow` 找不到任何东西，要用
+  `github:` 形式。
 
 ```sh
-# 1. 核心，从源码装
-git clone https://github.com/HarryHeYu/sessionFlow
-cd sessionFlow
-pip install -e .
+# 1. 核心（pin 到本插件版本实测过的发布 tag）
+pipx install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.0"
+voyager --version     # 应当输出 1.3.0
 voyager scan
+voyager doctor        # 确认核心能跑，并报告 bridge schema 1
 
 # 2. 本插件，直接从 GitHub 装
 dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow
 dsh --profile web
 ```
+
+没有 `pipx`？`python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.0"`
+也可以。用 `python -m pip` 是有意的：Windows 上 `pip` 常常不在 `PATH` 里，而 `python` 在。
 
 pnpm 默认**不允许** git 来源的包执行构建脚本，所以第一次 `add` 会停下并打印
 它需要的那个 key。把该 key 写进 profile 的 `pnpm-workspace.yaml`，再跑一次同样的
@@ -166,12 +184,34 @@ dsh --profile web --dump-config | grep dsh-sessionflow
 
 ## 兼容性
 
-| 插件 | DSH | sessionFlow bridge schema | 状态 |
-|---|---|---|---|
-| 1.1.0 | 0.1.5-rc.3 | 1 | tested |
+**两个仓库各自独立发版**——插件 `1.1.0` 配核心 `1.3.0` 是当前正确的组合，
+版本号不需要相同。真正约束它们的是 **bridge schema**：插件在 `src/bridge.ts`
+里声明 `REQUIRED_SCHEMA_VERSION`，核心在 `voyager integration-info --json` 里报告它。
 
-DSH 处于 Developer Preview，接口会变。插件声明它需要的 bridge `schema_version`，
-对更旧的核心**明确报错**；不声称支持"所有未来版本"。
+| 插件 | 核心 | bridge schema |
+|---|---|---|
+| 1.1.0 | `v1.3.0` | 1 |
+
+六个 tool 的兼容性由**非模型**的契约测试保证（输入 → bridge 调用 → 结果格式化，
+对着真实核心和临时索引）。模型**自主选择**这些 tool 在真实模型回合里被观察到过，
+但**没有**可重复的端到端套件——见[验证状态](#验证状态)。
+
+DSH 处于 Developer Preview，接口会变。按渠道如实标注达到的等级：
+
+| 插件 | DSH | bridge schema | 能装上 | DSH 能加载 | 能回答 tool 调用 |
+|---|---|---|---|---|---|
+| 1.1.0 | `0.1.5-rc.3` | 1 | 是 | 是 | 是 |
+| 1.1.0 | `0.1.7-rc.2` | 1 | 是 | 未跑 | 未跑 |
+| 1.1.0 | `0.2.0-rc.2`（`next`） | 1 | 是 | 是 | 是 |
+| 1.1.0 | `0.2.1-alpha.4`（`alpha`） | 1 | 是 | 是 | 是 |
+
+"未跑"不等于"大概没问题"——`0.1.7-rc.2` 被放行只是为了不让用户卡在安装报错上，
+此外不作任何声明。`latest` 是上游陈旧的 `0.0.1-rc.1`，**故意不收录**：
+没有证据表明插件在第一个 release candidate 上能用。
+
+插件声明它需要的 bridge `schema_version`，对更旧的核心**明确报错**；
+不声称支持"所有未来版本"。`tests/peer-range.test.ts` 钉住这张表，
+所以放宽范围时必须先决定新那一行的状态，而不是悄悄放进来。
 
 ## 验证状态
 
