@@ -63,6 +63,13 @@ const HOSTS = [
   // current `alpha` dist-tag.  Excluding it is what broke installs for anyone
   // on alpha, so it is admitted; the same cold-start + tool call was run on it.
   { version: '0.2.1-alpha.4', cordis: '4.0.5-alpha.2', status: 'SUPPORTED' },
+  // `next` moved on 2026-10-31 (0.2.1-rc.5).  Windows cold-start verified
+  // install/bundle/prepare/layer + a real bridge call; the boot-load gate ran
+  // on CI Linux.  cordis 4.0.5 is what the host itself declares.
+  { version: '0.2.1-rc.5', cordis: '4.0.5', status: 'SUPPORTED' },
+  // current `alpha` dist-tag (0.2.2-alpha.2, requires cordis ~4.0.6-alpha.1).
+  // Same Windows verification scope as 0.2.1-rc.5; boot gate on CI Linux.
+  { version: '0.2.2-alpha.2', cordis: '4.0.6-alpha.1', status: 'SUPPORTED' },
 ];
 
 /** semver, loaded the ESM way.  A dev dependency: nothing ships it to users. */

@@ -54,6 +54,8 @@ jobs:
           - { install: github, dsh: "0.1.5-rc.3", label: github-015 }
           - { install: file,   dsh: "0.1.5-rc.3", label: file-015 }
           - { install: file,   dsh: "0.2.0-rc.2", label: file-020 }
+          - { install: file,   dsh: "0.2.1-rc.5", label: file-0211rc5 }
+          - { install: file,   dsh: "0.2.2-alpha.2", label: file-0222a2 }
     steps:
       - name: Check out the plugin
         uses: actions/checkout@v4

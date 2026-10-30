@@ -5,6 +5,14 @@ release is in `docs/release-<version>.md`.
 
 ## [Unreleased]
 
+### Added
+- **Two new DSH channels verified and admitted** (2026-10-31): `0.2.1-rc.5`
+  (the `next` dist-tag, requires cordis `~4.0.5`) and `0.2.2-alpha.2` (the
+  `alpha` dist-tag, requires cordis `~4.0.6-alpha.1`). Peer ranges now name
+  both prerelease lines explicitly; Windows cold-start verified install →
+  bundle → prepare → profile layer → a real bridge call against a live core,
+  and the Linux cold-start CI rows run the full boot gate on both channels.
+
 ### Fixed
 - **The plugin could not be installed on any current harness.**  Both peer
   ranges excluded the versions users actually run, so `dsh plugin add` ended in

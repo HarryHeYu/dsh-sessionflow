@@ -15,7 +15,7 @@ supported agents using [sessionFlow](https://github.com/HarryHeYu/sessionFlow).
 | **Why use it** | Work started in Codex, Claude Code, Grok or ZCode does not have to stop at the agent boundary — pick it back up inside DSH with the goal, files, commands and open items intact. |
 | **Install** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` — [details](#install). Needs a working model provider **and** the sessionFlow core. |
 | **Try it** | Ask in plain language: *"Continue the work I was doing in Claude Code on this repo."* Full walkthrough: [5-minute Quick Start](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md). |
-| **Current release** | [v1.1.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.1.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 (tool calls answered) · Node ≥ 22.19 · bridge schema 1 |
+| **Current release** | [v1.2.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.2.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 / 0.2.1-rc.5 / 0.2.2-alpha.2 (tool calls answered) · Node ≥ 22.19 · bridge schema 1 |
 | **Privacy** | Local only. No account, no telemetry, no network calls — [boundary](#what-stays-local) |
 | **Known limitation** | Native resume by an agent is **not verified** — see [verification status](#verification-status) |
 
@@ -304,6 +304,8 @@ is a separate question:
 | 1.1.0 | `0.1.7-rc.2` | 1 | yes | not run | not run |
 | 1.1.0 | `0.2.0-rc.2` (`next`) | 1 | yes | yes | yes |
 | 1.1.0 | `0.2.1-alpha.4` (`alpha`) | 1 | yes | yes | yes |
+| 1.2.0 | `0.2.1-rc.5` (`next`) | 1 | yes | yes | yes |
+| 1.2.0 | `0.2.2-alpha.2` (`alpha`) | 1 | yes | yes | yes |
 
 "Not run" is not a euphemism for "probably fine" — `0.1.7-rc.2` is admitted so
 that a user on it is not blocked by an install error, and nothing more is
