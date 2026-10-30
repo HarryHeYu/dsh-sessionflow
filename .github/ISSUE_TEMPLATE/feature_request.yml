@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest an improvement to the sessionflow tools or the DSH integration.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Problem scenario
+      description: What were you trying to do across agents, and where did the plugin fall short? Concrete session/agent examples help.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: The tool surface or behavior you would like (the plugin is deliberately a thin adapter — features that belong in the sessionFlow core will be pointed there).
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: compatibility
+    attributes:
+      label: Compatibility
+      description: See docs/versioning.md if present; the plugin promises bridge schema compatibility and no breaking tool-surface changes within a minor line.
+      options:
+        - label: This does not require breaking the existing six-tool surface or the bridge schema contract.

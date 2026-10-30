@@ -8,6 +8,13 @@ Facts in this document were checked against v1.1.0 on 2026-10-12. Before
 publishing, re-check the version numbers and links; before *editing*, read
 [Accuracy rules](#accuracy-rules) at the bottom.
 
+**2026-10-31 refresh note:** the current release is
+[v1.2.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.2.0) —
+the DSH `next` (0.2.1-rc.5) and `alpha` (0.2.2-alpha.2) channels are now
+verified end to end (install → load → tool call), so the announcement's
+compatibility wording can drop any "rc channel pending" caveats. Re-verify
+the dist-tags on the day of posting; the channels move.
+
 ---
 
 ## Title

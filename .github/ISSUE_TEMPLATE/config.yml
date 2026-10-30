@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: sessionFlow core issues
+    url: https://github.com/HarryHeYu/sessionFlow/issues
+    about: Problems with the continuity layer itself (indexing, merging, the voyager CLI) belong to the core repository.
+  - name: DeepSeek Harness (DSH) issues
+    url: https://github.com/deepseek-ai
+    about: DSH host bugs (plugin manager, boot, credentials) belong upstream.

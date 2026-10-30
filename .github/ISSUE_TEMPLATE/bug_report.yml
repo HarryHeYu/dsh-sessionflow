@@ -1,0 +1,61 @@
+name: Bug report
+description: Something in dsh-sessionflow is broken or behaves unexpectedly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The more of this you fill in, the faster
+        the diagnosis. If the plugin could not be **installed** at all, say so
+        in the title — install failures (ERESOLVE) are diagnosed differently
+        from load or tool-call failures.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Also tell us what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The exact command(s) and the plain-language prompt you used, if any.
+      placeholder: |
+        dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow
+        "Continue the work I was doing in Claude Code on this repo."
+    validations:
+      required: true
+  - type: input
+    id: dsh-version
+    attributes:
+      label: DSH version
+      description: Output of `dsh --version`.
+      placeholder: 0.2.0-rc.2
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version / install spec
+      description: e.g. v1.2.0 via `github:HarryHeYu/dsh-sessionflow`
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node (`node --version`), how the sessionFlow core is installed (`voyager integration-info --json` is ideal).
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error output
+      description: The tool's error text (the plugins return structured, actionable errors — paste them whole).
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for a duplicate.
+          required: true
+        - label: The sessionFlow core itself works (`voyager stats --db <db>` runs).
