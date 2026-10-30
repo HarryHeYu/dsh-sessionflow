@@ -3,6 +3,16 @@
 Notable changes to `dsh-sessionflow`, newest first.  The full write-up for each
 release is in `docs/release-<version>.md`.
 
+## [1.2.0] — 2026-10-31
+
+**渠道兼容跟进（R1）**：验证并接纳 DSH `0.2.1-rc.5`（`next`）与
+`0.2.2-alpha.2`（`alpha`）。peer range 显式命名两条新 prerelease 线；
+Windows 冷启动四关 + 真实 bridge 调用通过，Linux CI 补完整 boot 门。
+发布说明：[docs/release-v1.2.0.md](docs/release-v1.2.0.md)。
+
+另含 [Unreleased] 中的全部修复（peer range 修复、探测超时、并发解析、
+测试隔离）。详见完整 Changelog。
+
 ## [Unreleased]
 
 ### Added
