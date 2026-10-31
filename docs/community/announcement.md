@@ -1,6 +1,6 @@
 # Community announcement — FINAL, ready to publish
 
-**Status: not posted anywhere.** This text is final and can be published as-is,
+**Status: posted to GitHub Discussions on 2026-10-31.** This text is final and can be published as-is,
 but nothing has been sent to Discord, GitHub Discussions, Reddit or any other
 channel. Publishing is a separate, explicit decision.
 
@@ -248,3 +248,5 @@ Keep these true when editing or publishing:
    verified, and name the level (unit / integration / live).
 6. Do not say the plugin is listed, featured or endorsed anywhere until a
    listing actually merges — a submitted PR is not a listing.
+
+**Posted:** https://github.com/HarryHeYu/dsh-sessionflow/discussions/4
