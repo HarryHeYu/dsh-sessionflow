@@ -486,4 +486,9 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
+**Also from the same author:** [dsh-figcraft](https://github.com/HarryHeYu/figcraft) —
+PaperCanvas as a DSH plugin: agents create and incrementally patch scientific
+figures (true-vector SVG / PDF / PPTX) with seven `papercanvas_*` tools. Same
+cold-start verification discipline, same channels.
+
 [中文说明](README.zh-CN.md) · [sessionFlow](https://github.com/HarryHeYu/sessionFlow)
