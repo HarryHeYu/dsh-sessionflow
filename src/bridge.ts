@@ -448,10 +448,26 @@ export async function callOp<T>(op: string, params: Record<string, unknown>,
   return payload.result as T;
 }
 
+/** Options for {@link runJson}. */
+export interface RunJsonOptions {
+  /**
+   * The caller already placed `--json` itself, so it must not be appended.
+   *
+   * Needed because the append happens at the END of argv, and a caller that
+   * uses the `--` separator to protect positional values loses every flag
+   * after it: `merge a --goal=g -- a:1 --json` parses as
+   * `sessions=['a:1','--json'], json=False`, silently.  A caller in that shape
+   * therefore puts `--json` before the separator and says so here.
+   */
+  jsonAlreadySet?: boolean;
+}
+
 /** Run a core subcommand that emits JSON on stdout (`--json` is appended). */
-export async function runJson<T>(argv: string[], opts: BridgeOptions = {}): Promise<T> {
+export async function runJson<T>(argv: string[], opts: BridgeOptions = {},
+                                 runOpts: RunJsonOptions = {}): Promise<T> {
   const cmd = await resolveVoyager(opts);
-  const { stdout, stderr, code } = await run(cmd, [...argv, '--json'], opts);
+  const full = runOpts.jsonAlreadySet ? [...argv] : [...argv, '--json'];
+  const { stdout, stderr, code } = await run(cmd, full, opts);
   if (code !== 0) {
     throw new VoyagerError('CLI_FAILED',
       `\`voyager ${argv.join(' ')}\` failed with exit code ${code}`,

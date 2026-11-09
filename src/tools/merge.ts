@@ -1,6 +1,8 @@
 import { defineTool } from '@deepseek-ai/dsh-tools';
 import { runJson, type BridgeOptions } from '../bridge.js';
-import { guarded, jsonOutput } from './common.js';
+import {
+  MAX_ARG_CHARS, assertArgvFits, flagArg, guarded, jsonOutput, ParameterError,
+} from './common.js';
 
 interface MergeResult {
   action: string;
@@ -37,18 +39,56 @@ export function mergeTool(bridge: BridgeOptions) {
     },
     output: jsonOutput(),
     async execute(args) {
+      // Built and bounded OUTSIDE `guarded`, so a refusal stays a
+      // ParameterError naming the field instead of being flattened into the
+      // generic message a core failure produces.  Nothing is spawned yet.
+      const ids = Array.isArray(args.session_ids)
+        ? args.session_ids.filter((s): s is string => typeof s === 'string' && s.length > 0)
+        : [];
+      if (ids.length === 0) {
+        throw new ParameterError('sessionflow_merge needs at least one session id.');
+      }
+      // A session id becomes a POSITIONAL argument, so it must survive the same
+      // length ceiling as a value would.
+      const oversized = ids.find((id) => id.length > MAX_ARG_CHARS);
+      if (oversized !== undefined) {
+        throw new ParameterError(
+          `\`session_ids\` contains one id of ${oversized.length} characters, ` +
+          `over the ${MAX_ARG_CHARS} one argument may carry.`);
+      }
+
+      // Options in `=` form: a goal of "--verbose" is data, not a flag.
+      const options: string[] = [];
+      const contributions: Array<readonly [string, number]> = [['session_ids', 0]];
+      let idsChars = 0;
+      for (const id of ids) idsChars += id.length;
+      contributions[0] = ['session_ids', idsChars];
+
+      if (args.goal !== undefined) {
+        options.push(flagArg('goal', args.goal, { maxLength: MAX_ARG_CHARS }));
+        contributions.push(['goal', args.goal.length]);
+      }
+      if (args.thread_title !== undefined) {
+        options.push(flagArg('thread_title', args.thread_title, { maxLength: MAX_ARG_CHARS }));
+        contributions.push(['thread_title', args.thread_title.length]);
+      }
+      if (args.budget !== undefined) {
+        // A budget is a short token or an integer; the same ceiling applies.
+        options.push(flagArg('budget', args.budget, { maxLength: MAX_ARG_CHARS }));
+        contributions.push(['budget', args.budget.length]);
+      }
+
+      // Order matters and is load-bearing: `--json` goes BEFORE the separator.
+      // After it, argparse stops option parsing and reads the flag as just
+      // another session id — measured as `sessions=['a:1','--json'], json=false`.
+      const argv = [
+        'merge', ...options, '--json', '--', ...ids,
+      ];
+      assertArgvFits(argv, contributions);
+
       return await guarded(async () => {
-        const ids = Array.isArray(args.session_ids)
-          ? args.session_ids.filter((s): s is string => typeof s === 'string' && s.length > 0)
-          : [];
-        if (ids.length === 0) {
-          throw new Error('sessionflow_merge needs at least one session id.');
-        }
-        const argv = ['merge', ...ids];
-        if (args.goal) argv.push('--goal', args.goal);
-        if (args.thread_title) argv.push('--thread-title', args.thread_title);
-        if (args.budget) argv.push('--budget', args.budget);
-        return await runJson<MergeResult>(argv, bridge);
+        // `--json` is already in place, so the bridge must not append another.
+        return await runJson<MergeResult>(argv, bridge, { jsonAlreadySet: true });
       });
     },
   });

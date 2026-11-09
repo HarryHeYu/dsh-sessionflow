@@ -43,7 +43,22 @@ if (argv[0] === 'integration-info') {
     });
   });
 } else {
-  // a subcommand call such as `merge <ids> --json`
-  record(`${argv[0]}|${JSON.stringify(argv.slice(1, -1))}`);
-  reply({ action: 'bundle', context: '', argv: argv.slice(0, -1) });
+  // a subcommand call such as `merge <options> --json -- <ids>`
+  //
+  // `--json` is now placed BEFORE the `--` separator rather than at the end of
+  // argv (after the separator argparse would read it as a positional session
+  // id).  Recording or slicing by POSITION would therefore drop a session id,
+  // so the identity flag is filtered out by value and the `--` separator is
+  // kept, which is what makes the recorded shape legible in a failure message.
+  record(`${argv[0]}|${JSON.stringify(argv.filter((a) => a !== '--json'))}`);
+  // A subcommand's `--json` output is a BARE payload, not an id/result
+  // envelope: `_handoff_via_engine` does `print(json.dumps(payload))` directly
+  // (cli.py).  Only the `api` op wraps its answer.  This stub used to wrap
+  // both, which is why nothing here ever noticed that the subcommand branch
+  // answered with a shape the real core cannot produce.
+  process.stdout.write(JSON.stringify({
+    action: 'bundle', context: '', thread_id: 'stub-thread',
+    scope: null, style: 'continuation', context_chars: 0, member_count: 1,
+    warnings: [], error: null, bundle_path: null, argv,
+  }));
 }

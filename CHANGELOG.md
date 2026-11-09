@@ -24,6 +24,48 @@ Windows 冷启动四关 + 真实 bridge 调用通过，Linux CI 补完整 boot �
   and the Linux cold-start CI rows run the full boot gate on both channels.
 
 ### Fixed
+- **`sessionflow_merge` built an argv the core's argparse could not parse.**  The
+  tool emitted options in the space form (`--goal <value>`) and appended the ids
+  bare, so:
+  * a `goal` beginning with `-` (`--verbose`, `---`) made argparse read it as a
+    flag and exit with `expected one argument`, surfacing as a `CLI_FAILED` that
+    named no argument;
+  * a session id beginning with `-` was parsed as a flag rather than an id.
+
+  Options now travel in the `=` form (`--goal=--verbose`), the ids follow a `--`
+  separator, and `--json` is placed **before** that separator — after it,
+  argparse stops option parsing and reads the flag as another session id
+  (measured: `sessions=['a:1','--json'], json=false`, so the core would have
+  looked for a session called `--json`).  All three shapes are proven against
+  the real `merge` subparser, not against a mock.
+
+- **An over-long argument crashed the spawn without naming the culprit.**  A
+  command line has a hard ceiling (32767 characters on Windows, where Node
+  raises `ENAMETOOLONG` synchronously; `E2BIG` on POSIX), and the bridge reported
+  it as `could not start '<node>': Error: spawn ENAMETOOLONG` — which reads like
+  a broken install and points at the executable.  Values are now bounded before
+  the spawn (`MAX_ARG_CHARS` per value, `MAX_ARGV_CHARS` in total) and the
+  refusal names the field: `` `goal` is too long: 40000 characters, but at most
+  8000 can be carried on a command line. ``  Measured transition for a
+  40000-character goal: a 4 ms failure naming the executable → a 0 ms refusal
+  naming `goal`.
+
+- **A provider-filtered `sessionflow_recent` could silently under-return.**  The
+  core's `overview` op has no provider parameter, so the filter runs in the
+  plugin — and it asked the core for `limit * 4` rows and hoped the wanted
+  provider was at least a quarter of them.  When it was not, the tool returned
+  fewer rows than asked while the core had plenty more, and the answer was
+  indistinguishable from "there is nothing else".  It now requests the widest
+  window the core honours and marks a window-limited answer with `truncated` so
+  an incomplete list cannot read as a complete one.
+
+- **The echo stub answered with a shape the real core cannot produce.**  The
+  subcommand branch wrapped its reply in an `id`/`result` envelope; a real
+  subcommand with `--json` prints a bare payload (`_handoff_via_engine` does
+  `print(json.dumps(payload))` directly — only the `api` op wraps).  No
+  assertion depended on the envelope, which is why nothing noticed; it is fixed
+  so the fixture cannot hide a future parsing mistake.
+
 - **The plugin could not be installed on any current harness.**  Both peer
   ranges excluded the versions users actually run, so `dsh plugin add` ended in
   an `ERESOLVE` that had to be worked around by hand.

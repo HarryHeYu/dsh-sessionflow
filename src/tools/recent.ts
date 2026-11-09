@@ -21,6 +21,15 @@ interface Overview {
   recent_sessions: RecentSession[];
 }
 
+/**
+ * How many rows to ask the core for when a provider filter will be applied here.
+ *
+ * Matches the ceiling `intArg` allows for `limit`, so the filtered answer can
+ * never be short because the request was: the window is the widest the core
+ * will honour, and `limit` then decides how much of it to show.
+ */
+const PROVIDER_FILTER_WINDOW = 200;
+
 export function recentTool(bridge: BridgeOptions) {
   return defineTool({
     name: 'sessionflow_recent',
@@ -55,21 +64,31 @@ export function recentTool(bridge: BridgeOptions) {
       return await guarded(async () => {
         // The core's `overview` op has no provider filter, so a provider
         // narrowing has to happen here — but applying it *after* the core's
-        // `limit` would silently under-return.  Ask for a wider window first so
-        // the filtered list can still reach `limit`.
-        const want = args.provider ? Math.min(limit * 4, 200) : limit;
+        // `limit` would silently under-return.  The previous fix asked for
+        // `limit * 4` rows and hoped; that is a guess, and when the wanted
+        // provider is rarer than one row in four it still under-returns, with
+        // no signal that it did.  Ask for the ceiling up front instead: the
+        // extra rows are cheap (the core filters and sorts before it reads any
+        // events) and the answer is then exact rather than probable.
+        const want = args.provider ? PROVIDER_FILTER_WINDOW : limit;
         const ov = await callOp<Overview>('overview', {
           repo: args.repo ?? null,
           hours,
           limit: want,
         }, bridge);
-        const sessions = args.provider
+        const matched = args.provider
           ? ov.recent_sessions.filter((s) => s.provider === args.provider)
           : ov.recent_sessions;
+        // Say when the window, not the filter, is what limited the answer: a
+        // caller that got `limit` rows of a filtered list cannot otherwise tell
+        // a complete answer from a truncated one.
+        const truncated = matched.length > limit && want === ov.recent_sessions.length
+          && ov.recent_sessions.length >= PROVIDER_FILTER_WINDOW;
         return {
           stats: ov.stats,
           threads: ov.threads,
-          recent_sessions: sessions.slice(0, limit),
+          recent_sessions: matched.slice(0, limit),
+          ...(truncated ? { truncated: true } : {}),
         };
       });
     },
