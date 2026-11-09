@@ -115,9 +115,10 @@ an older one is refused by name rather than misbehaving silently.
 
 | plugin | core | bridge schema |
 |---|---|---|
-| **1.1.0** | `v1.3.0` | `1` |
+| **1.2.0** | `v1.3.0` | `1` |
+| 1.1.0 | `v1.3.0` | `1` |
 
-**The two repos are versioned independently** — plugin `1.1.0` against core
+**The two repos are versioned independently** — plugin `1.2.0` against core
 `1.3.0` is the current, correct pairing, and the numbers are not meant to match.
 What binds them is the **bridge schema**: `REQUIRED_SCHEMA_VERSION` in
 `src/bridge.ts` is the value the plugin demands, and `voyager integration-info
@@ -130,12 +131,17 @@ recorded real-model runs, but there is **no repeatable end-to-end suite** for it
 see [verification status](#verification-status) and the prompt-shape note at the
 top. Do not read "the tools work" as "the model will always reach for them".
 
-> **Core v1.3.0 is released and is what the pin below installs.** It is tested
-> against plugin v1.1.0: the six tools and the bridge schema (`1`) are
-> unchanged, so no plugin upgrade is needed.  v1.3.0 adds evidence references
-> inside bundle text and a new `voyager evidence` subcommand -- additive only;
-> the plugin passes bundle text through and does not parse it, which is why it
-> needs no change.
+> **Core v1.3.0 is released and is what the pin below installs.** The current
+> pairing is plugin **v1.2.0** against core **v1.3.0**: the six tools and the
+> bridge schema (`1`) are unchanged from 1.1.0, so upgrading is optional unless
+> you run DSH `0.2.1-rc.5` (next) or `0.2.2-alpha.2` (alpha), which 1.2.0
+> admits. Core v1.3.0 added evidence references inside bundle text and the
+> `voyager evidence` subcommand -- additive only; the plugin passes bundle text
+> through and does not parse it.
+>
+> **Core v1.3.1 is a release candidate, not a released version.** Plugin 1.2.0
+> has been run against it and reports bridge schema `1` unchanged; the pairing
+> becomes "current" only when v1.3.1 ships.
 
 ## Install
 
