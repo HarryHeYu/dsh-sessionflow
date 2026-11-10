@@ -1,0 +1,100 @@
+name: Claimable task
+description: A scoped task that someone can pick up (often from ROADMAP.md).
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for work that is **ready to be claimed**: the scope is settled
+        and the acceptance criteria are testable. If the design is still open,
+        open a Feature request instead and we will turn it into one of these.
+
+        Say which repository it belongs to. The core implements behaviour; this
+        plugin only registers tools, validates arguments and adapts the host.
+  - type: dropdown
+    id: repo
+    attributes:
+      label: Repository
+      options:
+        - dsh-sessionflow (plugin)
+        - sessionFlow (core)
+        - both (two linked PRs, order stated below)
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is wrong or missing today? Include how you noticed it.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: User impact
+      description: Who is affected, and what do they experience? "It would be nicer" is not impact.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What is in scope, and — just as important — what is explicitly out of scope.
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: Relevant code
+      description: Files/functions a contributor should read first.
+      placeholder: |
+        src/tools/recent.ts
+        tests/recent-provider.test.ts
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Proposed approach
+      description: One or two sentences. If there are options, say which you prefer and why.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Testable statements. "Works well" is not one.
+      placeholder: |
+        - A provider that sorts entirely behind the window still reports incompleteness.
+        - A complete answer is not marked incomplete.
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Tests
+      description: What proves it? Name the level — UNIT_TESTED / INTEGRATION_TESTED / LIVE_VERIFIED.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Blocking issues/PRs, required core version, or "none".
+    validations:
+      required: true
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: Suggested difficulty
+      options:
+        - good first issue (docs, a test, a small bounded fix)
+        - small (one file, clear boundary)
+        - medium (a few files, needs a design decision)
+        - large (cross-cutting; discuss before starting)
+    validations:
+      required: true
+  - type: checkboxes
+    id: claim
+    attributes:
+      label: Claiming it
+      options:
+        - label: I would like to work on this (a maintainer will confirm scope in a comment)

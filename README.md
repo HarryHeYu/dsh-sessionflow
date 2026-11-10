@@ -477,7 +477,7 @@ proposition is that your coding history does not leave your machine.
 ```sh
 npm install
 npm run build     # tsc -> lib/
-npm test          # build, then node --test — 54 tests (bridge mechanics + live core)
+npm test          # build, then node --test — 60 tests (bridge mechanics + live core)
 ```
 
 `tests/bridge.test.ts` covers resolution, timeouts, malformed JSON, non-zero
@@ -485,6 +485,18 @@ exits and the compatibility gate against stub executables, then runs the real
 JSON round-trip against the installed core on a seeded temporary index. Those
 indexes are created under the OS temp directory and **removed when the suite
 exits**; set `SESSIONFLOW_TEST_TMPDIR` to put them somewhere else.
+
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) first — it states the boundary that
+matters most: this repo registers tools and validates arguments, the
+[sessionFlow core](https://github.com/HarryHeYu/sessionFlow) implements what the
+data means. Core behaviour is never re-implemented here.
+
+[ROADMAP.md](ROADMAP.md) lists what is planned and which items are small enough
+to pick up, each with its scope and acceptance criteria. Issues are labelled
+`help wanted` and `good first issue` where they apply. Work flow: issue
+discussion → fork/branch → draft PR → CI and review → merge. No fixed dates.
 
 ## License
 

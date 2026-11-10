@@ -334,6 +334,17 @@ npm test          # 先构建，再跑 node --test（bridge 机制 + 真实核�
 再用**真实核心**在临时索引上跑一遍完整的 JSON 往返。这些临时索引建在系统临时目录下，
 **测试退出时会被删除**；用 `SESSIONFLOW_TEST_TMPDIR` 可以改到别处。
 
+## 参与贡献
+
+先读 [CONTRIBUTING.md](CONTRIBUTING.md) —— 里面写清了最重要的边界：本仓只负责
+注册 tool、校验参数、适配 DSH 宿主；数据「是什么意思」由
+[sessionFlow 核心](https://github.com/HarryHeYu/sessionFlow) 实现，核心逻辑不在
+这里重写一遍。
+
+[ROADMAP.md](ROADMAP.md) 列了计划中的事项，以及哪些小到可以单独认领（每项都写了
+范围和验收标准）。合适的 issue 会标 `help wanted` / `good first issue`。
+流程是：issue 讨论 → fork/分支 → draft PR → CI 与 review → 合并；没有固定交付日期。
+
 ## 许可
 
 MIT，见 [LICENSE](LICENSE)。

@@ -24,6 +24,6 @@ body:
     id: compatibility
     attributes:
       label: Compatibility
-      description: See docs/versioning.md if present; the plugin promises bridge schema compatibility and no breaking tool-surface changes within a minor line.
+      description: See the "Core compatibility" and "DSH host compatibility" sections of the README. The plugin promises bridge-schema compatibility and no breaking tool-surface changes within a minor line.
       options:
         - label: This does not require breaking the existing six-tool surface or the bridge schema contract.
