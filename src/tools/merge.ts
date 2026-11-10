@@ -42,9 +42,34 @@ export function mergeTool(bridge: BridgeOptions) {
       // Built and bounded OUTSIDE `guarded`, so a refusal stays a
       // ParameterError naming the field instead of being flattened into the
       // generic message a core failure produces.  Nothing is spawned yet.
-      const ids = Array.isArray(args.session_ids)
-        ? args.session_ids.filter((s): s is string => typeof s === 'string' && s.length > 0)
-        : [];
+      // Every element is CHECKED, not filtered.  The previous version kept only
+      // elements that were non-empty strings and dropped the rest, so
+      // `['a:1', 42, '   ']` merged ONE session and reported success: the
+      // caller was told the merge happened, and had no way to see that two of
+      // the ids it named were discarded.  A value that is not a session id is
+      // not "an id to skip" — silently narrowing the merge changes which
+      // sessions the WorkThread ends up containing, and it changes it quietly.
+      if (!Array.isArray(args.session_ids)) {
+        throw new ParameterError(
+          `\`session_ids\` must be an array of session ids ` +
+          `(got ${JSON.stringify(args.session_ids)}).`);
+      }
+      const ids: string[] = [];
+      args.session_ids.forEach((raw: unknown, i: number) => {
+        if (typeof raw !== 'string') {
+          throw new ParameterError(
+            `\`session_ids[${i}]\` must be text (got ${JSON.stringify(raw)}).`);
+        }
+        // Whitespace-only is blank, not an id: it would be passed through as a
+        // positional argument and the core would fail to resolve it with a
+        // message that does not point back at `session_ids`.
+        if (raw.trim().length === 0) {
+          throw new ParameterError(
+            `\`session_ids[${i}]\` is blank; every entry must name a session ` +
+            `(got ${JSON.stringify(raw)}).`);
+        }
+        ids.push(raw);
+      });
       if (ids.length === 0) {
         throw new ParameterError('sessionflow_merge needs at least one session id.');
       }

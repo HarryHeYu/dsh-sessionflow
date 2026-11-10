@@ -187,6 +187,65 @@ test('a goal just under the ceiling is still accepted', async () => {
   assert.ok(argv.some((a) => a.startsWith('--goal=')), JSON.stringify(argv).slice(0, 120));
 });
 
+// --- session_ids: a bad entry is refused, never quietly dropped -------------
+//
+// The whole merge is the unit of consent: the caller named a set of sessions and
+// the WorkThread will contain exactly those.  Dropping an entry is therefore not
+// leniency, it is a different operation performed on the caller's behalf without
+// saying so — `['a:1', 42]` used to merge one session and report success.
+
+test('merge refuses a non-string session id instead of merging the rest', async () => {
+  await expectRefused({ session_ids: ['a:1', 42] }, /`session_ids\[1\]`.*must be text/);
+});
+
+test('merge refuses a null session id instead of skipping it', async () => {
+  await expectRefused({ session_ids: ['a:1', null] }, /`session_ids\[1\]`.*must be text/);
+});
+
+test('merge refuses a whitespace-only session id', async () => {
+  await expectRefused({ session_ids: ['a:1', '   '] }, /`session_ids\[1\]`.*blank/);
+});
+
+test('merge refuses an empty-string session id', async () => {
+  await expectRefused({ session_ids: [''] }, /`session_ids\[0\]`/);
+});
+
+test('merge refuses session_ids that is not an array at all', async () => {
+  // Decided by the HOST, not by the tool: `defineTool` compiles the parameter
+  // spec into JSON Schema, so a bare string is rejected with
+  // `invalid arguments: "session_ids" must be an array` before `execute` runs.
+  // The tool keeps its own array check anyway — the schema is the host's
+  // business, and a tool that trusts it would drop its guard the moment the
+  // spec changed — but the observable refusal is the host's wording, so that is
+  // what is asserted here.  Either way nothing is spawned.
+  await expectRefused({ session_ids: 'a:1' }, /"session_ids" must be an array/);
+});
+
+test('a refusal names the offending index, so the caller can fix that one entry', async () => {
+  // Index 2, not "one of your ids": the caller has to know WHICH entry to remove
+  // when the other nine are perfectly good.
+  let error: Error | undefined;
+  try {
+    await mergeTool({
+      voyagerBin: process.execPath,
+      voyagerArgs: [join(HERE, 'fixtures', 'stub-echo.mjs')],
+    } as never).execute({ session_ids: ['a:1', 'b:2', 7] } as never, {} as never);
+  } catch (e) {
+    error = e as Error;
+  }
+  assert.ok(error, 'the call should have been refused');
+  assert.match(error.message, /`session_ids\[2\]`/,
+    `the message must name index 2; got: ${error.message}`);
+});
+
+test('every valid id still reaches the core in order', async () => {
+  // The check must not become a filter: a list of good ids is passed through
+  // whole, in the order given.
+  const argv = await mergeArgv({ session_ids: ['a:1', 'b:2', 'c:3'] });
+  const sep = argv.indexOf('--');
+  assert.deepEqual(argv.slice(sep + 1), ['a:1', 'b:2', 'c:3']);
+});
+
 // --- the helpers themselves -------------------------------------------------
 
 test('flagArg refuses a value carrying a newline or NUL', () => {

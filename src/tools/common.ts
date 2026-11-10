@@ -65,9 +65,22 @@ function refuse(name: string, b: Bounds, got: unknown, reason: string): never {
 /**
  * A bounded integer argument.
  *
- * Whole numbers only: `3.7` is not a "smaller 4" to the core, it is a value
- * SQLite rejects with `slice indices must be integers`, which surfaces as an
- * opaque error far from the caller's mistake.
+ * Whole numbers only.  What a fractional value does depends on the op, and the
+ * two behaviors are different enough that neither can be described as "the
+ * core rejects it" — both measured on voyager 1.3.0 against a real index:
+ *
+ *  * `search` does `int(limit or 20)` (api.py:254), so `3.7` is silently
+ *    truncated to `3`.  Nothing fails and nothing says so; the caller simply
+ *    gets fewer hits than it asked for.  A silent under-read is the worst of
+ *    the three outcomes, because it looks like a complete answer.
+ *  * `overview` slices with the raw value (api.py:77 and :94), so the same
+ *    `3.7` raises `slice indices must be integers or None or have an
+ *    __index__ method` — an error that names no argument and arrives far from
+ *    the caller's mistake.
+ *
+ * A fractional count is therefore never "a smaller integer" to be rounded down
+ * on the caller's behalf: it is either a quiet under-read or an opaque failure.
+ * Refusing it here costs one message and names the field.
  */
 export function intArg(name: string, value: unknown, b: Bounds): number {
   if (value === undefined || value === null) return b.fallback;

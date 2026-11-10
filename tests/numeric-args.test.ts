@@ -3,20 +3,32 @@
  * the core.
  *
  * Three distinct failures motivate this file, all measured on voyager 1.3.0
- * against a real index (94 sessions / 526,991 events):
+ * against a real index (94 sessions / 526,991 events).
  *
- *  1. `search {limit: -2}` -> count 1241, 480,826 bytes of JSON.  The core does
- *     `int(limit or 20)` and hands the value to SQLite as `LIMIT -2`, which
- *     removes the cap rather than applying one.  A model call with a stray
- *     minus sign is therefore an unbounded read into its own context.
+ * The core applies `limit` differently per op, so the two ops are listed
+ * separately rather than as one "the core rejects it" claim — that claim is
+ * false for `search` and was in this header before the behavior was measured
+ * op by op:
  *
- *  2. `search {limit: 3.7}` -> the request itself is fine; SQLite rejects it
- *     later with `slice indices must be integers or None`, which surfaces as a
- *     message with no trace of the argument that caused it.
+ *  `search` (api.py:254, `int(limit or 20)`):
+ *  1. `limit: -2` -> count 33,277, 480,826 bytes of JSON.  `LIMIT -2` removes
+ *     the cap rather than applying one, so a stray minus sign is an unbounded
+ *     read into the model's own context.
+ *  2. `limit: 3.7` -> 3 rows.  `int()` TRUNCATES it.  No error, no warning; the
+ *     caller just gets fewer hits than it asked for, which looks complete.
+ *  3. `limit: 0` -> 20 rows.  `limit or 20` treats 0 as absent, so asking for
+ *     nothing means asking for the default.
  *
- *  3. `overview {limit: 0}` -> 0 rows, not 12.  `int(limit or 20)` treats 0 as
- *     absent, so "ask for nothing" silently means "ask for the default", while
- *     `overview {limit: -3}` means "ask for everything" (91 rows).
+ *  `overview` (api.py:77/:94, raw slice — no `int()`, so none of the above):
+ *  4. `limit: 3.7` -> `slice indices must be integers or None or have an
+ *     __index__ method`, an error naming no argument.
+ *  5. `limit: 0` -> 0 rows (`candidates[:0]`), NOT the default page.
+ *  6. `limit: -3` -> 91 of 94 rows: Python's negative slice drops the newest
+ *     three rather than meaning "all" or "none".
+ *
+ * Both ops are therefore validated here, ahead of the spawn, but for different
+ * reasons: on `search` an out-of-range value is silently reinterpreted, and on
+ * `overview` a fractional one is an opaque crash.
  *
  * The tools must refuse or clamp BEFORE spawning a child, and the refusal must
  * be identifiable as a parameter problem rather than folded into the generic

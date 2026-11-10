@@ -83,6 +83,35 @@ Windows 冷启动四关 + 真实 bridge 调用通过，Linux CI 补完整 boot �
   assertion depended on the envelope, which is why nothing noticed; it is fixed
   so the fixture cannot hide a future parsing mistake.
 
+- **`sessionflow_merge` silently discarded session ids it did not like.**  The
+  argument was read with `filter(isString && length > 0)`, so `['a:1', 42, '  ']`
+  merged **one** session and reported success: the caller was told the merge
+  happened, with no way to see that two of the ids it named were dropped.  The
+  merge is the unit of consent — the caller names a set and the WorkThread
+  contains exactly that set — so quietly narrowing it is a different operation
+  performed on the caller's behalf.  Every element is now checked, not filtered
+  (`session_ids[i]` names the offending index so the other nine ids can be
+  kept), whitespace-only entries are refused as blank, and a non-array argument
+  is refused too.  Measured: `['a:1', 42]` went from "merged a:1, exit 0" to a
+  refusal naming `session_ids[1]`.
+
+- **A fractional `limit` did not behave the way the code comment claimed.**  The
+  comment said the core rejects `3.7` with `slice indices must be integers`.
+  That is true of `overview` but **not** of `search`, which does
+  `int(limit or 20)` (`api.py:254`) and so truncates `3.7` to `3` — no error, no
+  warning, just fewer hits than were asked for, which reads as a complete
+  answer.  Both behaviors are now documented where they belong and measured:
+
+  | input | `search` (`int()`) | `overview` (raw slice) |
+  |---|---|---|
+  | `limit: 3.7` | 3 rows, silently truncated | `slice indices must be integers` |
+  | `limit: 0` | 20 rows (0 reads as absent) | 0 rows |
+  | `limit: -2` | 33,277 rows (no cap) | 91 of 94 rows |
+
+  The guard itself was already right; only its justification was wrong, and a
+  wrong justification is how a later change removes the guard for the wrong
+  reason.
+
 - **The plugin could not be installed on any current harness.**  Both peer
   ranges excluded the versions users actually run, so `dsh plugin add` ended in
   an `ERESOLVE` that had to be worked around by hand.
