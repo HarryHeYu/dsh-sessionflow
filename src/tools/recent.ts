@@ -79,11 +79,22 @@ export function recentTool(bridge: BridgeOptions) {
         const matched = args.provider
           ? ov.recent_sessions.filter((s) => s.provider === args.provider)
           : ov.recent_sessions;
-        // Say when the window, not the filter, is what limited the answer: a
-        // caller that got `limit` rows of a filtered list cannot otherwise tell
-        // a complete answer from a truncated one.
-        const truncated = matched.length > limit && want === ov.recent_sessions.length
-          && ov.recent_sessions.length >= PROVIDER_FILTER_WINDOW;
+        // Say when the window, not the filter, is what limited the answer.
+        //
+        // The condition is "the core filled the window", NOT "we had to cut
+        // more than `limit`".  Those differ in the case that matters: the
+        // wanted provider can sit entirely BEHIND the window, where the filter
+        // matches zero rows and cuts nothing — yet the empty list is exactly as
+        // uninformed as a cut one.  The previous predicate required
+        // `matched.length > limit`, so that case reported no signal at all and
+        // an empty answer stood in for "no such sessions exist" (measured on a
+        // real 255-session index: 250 fresher `claude` rows ahead of 5 `codex`
+        // rows, `{provider:'codex', limit:5}` returned 0 rows, `truncated`
+        // absent, while `sessions {platform:'codex'}` shows the 5 exist).
+        //
+        // Only a filtered call can be in this position: an unfiltered one asks
+        // for exactly `limit` and a full page is the answer, not a truncation.
+        const truncated = Boolean(args.provider) && ov.recent_sessions.length >= want;
         return {
           stats: ov.stats,
           threads: ov.threads,

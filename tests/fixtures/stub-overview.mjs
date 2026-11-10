@@ -37,6 +37,15 @@ if (argv.includes('integration-info')) {
     record(`${req.op}|${JSON.stringify(req.params ?? {})}`);
     let result = {};
     try { result = JSON.parse(readFileSync(payloadPath, 'utf8')); } catch { /* ignore */ }
+    // Honour `limit` the way the real core does.  Without this the stub answered
+    // with the whole payload regardless of what was asked for, so a test could
+    // not tell "the core gave us everything" from "the core gave us the window"
+    // — which is precisely the distinction the `truncated` signal rests on.  A
+    // fixture that cannot clip cannot see a window-limited answer.
+    const lim = req.params?.limit;
+    if (Array.isArray(result.recent_sessions) && typeof lim === 'number') {
+      result = { ...result, recent_sessions: result.recent_sessions.slice(0, lim) };
+    }
     process.stdout.write(JSON.stringify({ id: 1, result }));
   });
 } else {

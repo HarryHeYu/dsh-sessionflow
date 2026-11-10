@@ -124,3 +124,37 @@ test('a complete filtered answer is not marked truncated', async () => {
   assert.equal((result.recent_sessions as unknown[]).length, 3);
   assert.equal(result.truncated, undefined, 'nothing was cut, so nothing should say so');
 });
+
+test('a provider sitting entirely BEHIND the window is marked, not returned empty', async () => {
+  // The case the first version of this signal could not see, and the reason the
+  // stub below now honours `limit`.
+  //
+  // 250 fresher `claude` rows fill the widest window the core will honour, and
+  // the wanted `codex` rows are older than all of them.  The filter therefore
+  // matches NOTHING and cuts nothing — but "0 codex rows" is exactly as
+  // uninformed as a cut answer, because codex sessions do exist.  The old
+  // predicate required `matched.length > limit`, so this returned an empty list
+  // with no marker, indistinguishable from "there is no codex history".
+  //
+  // Measured against a real 255-session index before the fix: 0 rows,
+  // `truncated` absent, while `sessions {platform:'codex'}` listed 5.
+  const rows = [
+    ...Array.from({ length: 250 }, (_, i) => session(i, 'claude')),
+    ...Array.from({ length: 5 }, (_, i) => session(1000 + i, 'codex')),
+  ];
+  const { result } = await runRecent(rows, { provider: 'codex', limit: 5 });
+  assert.equal((result.recent_sessions as unknown[]).length, 0,
+    'the window genuinely does not reach them — the fix is the signal, not the rows');
+  assert.equal(result.truncated, true,
+    'an empty answer from a full window must say the window was full');
+});
+
+test('an unfiltered full page is not called truncated', async () => {
+  // An unfiltered call asks for exactly `limit`, so getting `limit` rows back is
+  // the answer itself; marking it would make every ordinary page look clipped.
+  const rows = Array.from({ length: 30 }, (_, i) => session(i, 'claude'));
+  const { result } = await runRecent(rows, { limit: 7 });
+  assert.equal((result.recent_sessions as unknown[]).length, 7);
+  assert.equal(result.truncated, undefined,
+    'a page that was asked for in full is not truncated');
+});

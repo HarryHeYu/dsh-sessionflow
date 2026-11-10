@@ -59,6 +59,23 @@ Windows 冷启动四关 + 真实 bridge 调用通过，Linux CI 补完整 boot �
   window the core honours and marks a window-limited answer with `truncated` so
   an incomplete list cannot read as a complete one.
 
+- **…and the first version of that `truncated` signal could not see the worst
+  case: the wanted provider sitting entirely *behind* the window.**  The
+  predicate required `matched.length > limit`, i.e. "the filter cut something",
+  but when 250 fresher rows of another provider fill the window the filter
+  matches **nothing** and cuts nothing — so an empty list came back with no
+  marker while the sessions did exist.  Measured on a real 255-session index
+  (250 `claude` ahead of 5 `codex`): `{provider:'codex', limit:5}` returned
+  **0 rows, `truncated` absent**, while `sessions {platform:'codex'}` listed all
+  5.  The condition is now "the core filled the window" rather than "we cut
+  more than `limit`", and it is gated on the call being filtered at all, so an
+  ordinary full page is not relabelled as clipped.
+
+  The fixture could not have caught this: `stub-overview.mjs` ignored `limit`
+  and always answered with the whole payload, so "the core gave us everything"
+  and "the core gave us the window" were the same answer.  It now clips the way
+  a real core does.
+
 - **The echo stub answered with a shape the real core cannot produce.**  The
   subcommand branch wrapped its reply in an `id`/`result` envelope; a real
   subcommand with `--json` prints a bare payload (`_handoff_via_engine` does
