@@ -25,7 +25,7 @@ lying.
 | Item | Where | State | Notes |
 |---|---|---|---|
 | Review and merge PR #5 (argv + numeric bounds + `recent` window) | plugin | **MERGED** `b3fc6b9` (2026-11-11) | Squash merge, author attribution @SunnyRad. Real-core verification 96/96, cold-start CI 6/6, final main 102/102. No plugin version released. |
-| Core v1.3.1 release (DSH v4 discovery, UTF-8 stdout, short CJK search) | core | **BLOCKED — new gate item** | Not tagged. [sessionFlow#21](https://github.com/HarryHeYu/sessionFlow/issues/21): `api` stdin uses the legacy Windows code page, so UTF-8 CJK queries silently return 0 rows. Fix reserved for @SunnyRad; artifacts built before it are superseded. |
+| Core v1.3.1 release (DSH v4 discovery, UTF-8 stdout, short CJK search) | core | **BLOCKED — new gate item** | Not tagged. [sessionFlow#21](https://github.com/HarryHeYu/sessionFlow/issues/21): `api` stdin uses the legacy Windows code page, so UTF-8 CJK queries silently return 0 rows. [Core PR #19](https://github.com/HarryHeYu/sessionFlow/pull/19) open from @SunnyRad, not merged; artifacts built before it are superseded. |
 | Test-harness `VOYAGER_BIN` order leak (`bridge.test.ts`) | plugin | open — [#6](https://github.com/HarryHeYu/dsh-sessionflow/issues/6) | Two integration tests fail when `VOYAGER_BIN` is the only Core path; reproduced identically on `main` and PR HEAD, pre-existing. `help wanted`. |
 | Close out plugin issue #1 with the first release that contains the fixes | plugin | open | Must name the version, not just the commit. |
 | Release/documentation consistency | both | done for core, done for plugin README | `scripts/check_consistency.py --strict` in core CI. |
@@ -141,8 +141,9 @@ changes at once either.
 
 **P0 — correctness & release**
 1. PR #5 — **done** (squash-merged, real-core verified).
-2. Core `v1.3.1` — **gated** on [sessionFlow#21](https://github.com/HarryHeYu/sessionFlow/issues/21).
-   Sequence: contributor's stdin fix → rebuild wheel/sdist from the final HEAD →
+2. Core `v1.3.1` — **gated** on [sessionFlow#21](https://github.com/HarryHeYu/sessionFlow/issues/21);
+   [Core PR #19](https://github.com/HarryHeYu/sessionFlow/pull/19) is open, unmerged.
+   Sequence: review + CI + merge of that PR → rebuild wheel/sdist from the final HEAD →
    recompute SHA-256 → rerun full tests, upgrade path, `twine check`, and this
    plugin's `v1.2.0` pairing → then a maintainer decision on the tag/Release.
 
