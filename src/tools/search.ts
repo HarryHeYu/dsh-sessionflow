@@ -1,6 +1,6 @@
 import { defineTool } from '@deepseek-ai/dsh-tools';
 import { callOp, type BridgeOptions } from '../bridge.js';
-import { guarded, jsonOutput } from './common.js';
+import { guarded, intArg, jsonOutput } from './common.js';
 
 interface SearchHit {
   id: string;
@@ -48,13 +48,21 @@ export function searchTool(bridge: BridgeOptions) {
     },
     output: jsonOutput(),
     async execute(args) {
+      // Validated OUTSIDE `guarded` on purpose: a refusal must stay a
+      // ParameterError rather than being flattened into the same generic
+      // message every core failure produces.  Nothing has been spawned yet.
+      // The core passes `limit` straight to SQLite, where a negative value
+      // means "no cap" rather than "an error", and an unbounded result lands
+      // in the model's context (measured: 1241 rows, ~480 KB of JSON).
+      const limit = intArg('limit', args.limit,
+        { min: 1, max: 200, fallback: 20, what: 'a whole number of hits' });
       return await guarded(() => callOp<SearchResult>('search', {
         query: args.query,
         provider: args.provider ?? null,
         repo: args.repo ?? null,
         since: args.since ?? null,
         until: args.until ?? null,
-        limit: args.limit ?? 20,
+        limit,
       }, bridge));
     },
   });

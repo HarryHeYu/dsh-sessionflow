@@ -177,7 +177,22 @@ test('search forwards its query rather than swallowing it', async () => {
 });
 
 test('merge forwards the session ids as argv, not as a shell string', async () => {
+  // The subject here is "argv array, never a shell string", so the assertion is
+  // on the SHAPE: the ids must arrive as separate, unquoted elements.  The
+  // exact flag layout is `merge-argv.test.ts`'s subject — and it had to change
+  // (the `=` form, and a `--` separator) because the old layout
+  //   ['a:1', 'b:2', '--goal', 'g']
+  // is one the core's argparse cannot reliably parse: a goal beginning with a
+  // dash made it exit, and an id beginning with one was read as a flag.  Pinning
+  // the exact array here would have re-frozen that defect, so this test asserts
+  // what it was actually written to protect.
   const calls = await recordedCalls((bridge) => mergeTool(bridge).execute(
     { session_ids: ['a:1', 'b:2'], goal: 'g' }, {} as never));
-  assert.deepEqual(calls[0]?.[1], ['a:1', 'b:2', '--goal', 'g']);
+  const argv = calls[0]?.[1] as string[];
+  assert.ok(Array.isArray(argv), 'the ids must be passed as an argv array');
+  for (const id of ['a:1', 'b:2']) {
+    assert.ok(argv.includes(id), `'${id}' must be one whole argument, got ${JSON.stringify(argv)}`);
+  }
+  assert.ok(!argv.some((a) => a.includes(' ')), 'no argument may be a joined command line');
+  assert.ok(argv.some((a) => a === '--goal=g'), 'the goal must travel as one argument, not two');
 });

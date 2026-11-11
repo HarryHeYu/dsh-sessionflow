@@ -24,6 +24,94 @@ Windows 冷启动四关 + 真实 bridge 调用通过，Linux CI 补完整 boot �
   and the Linux cold-start CI rows run the full boot gate on both channels.
 
 ### Fixed
+- **`sessionflow_merge` built an argv the core's argparse could not parse.**  The
+  tool emitted options in the space form (`--goal <value>`) and appended the ids
+  bare, so:
+  * a `goal` beginning with `-` (`--verbose`, `---`) made argparse read it as a
+    flag and exit with `expected one argument`, surfacing as a `CLI_FAILED` that
+    named no argument;
+  * a session id beginning with `-` was parsed as a flag rather than an id.
+
+  Options now travel in the `=` form (`--goal=--verbose`), the ids follow a `--`
+  separator, and `--json` is placed **before** that separator — after it,
+  argparse stops option parsing and reads the flag as another session id
+  (measured: `sessions=['a:1','--json'], json=false`, so the core would have
+  looked for a session called `--json`).  All three shapes are proven against
+  the real `merge` subparser, not against a mock.
+
+- **An over-long argument crashed the spawn without naming the culprit.**  A
+  command line has a hard ceiling (32767 characters on Windows, where Node
+  raises `ENAMETOOLONG` synchronously; `E2BIG` on POSIX), and the bridge reported
+  it as `could not start '<node>': Error: spawn ENAMETOOLONG` — which reads like
+  a broken install and points at the executable.  Values are now bounded before
+  the spawn (`MAX_ARG_CHARS` per value, `MAX_ARGV_CHARS` in total) and the
+  refusal names the field: `` `goal` is too long: 40000 characters, but at most
+  8000 can be carried on a command line. ``  Measured transition for a
+  40000-character goal: a 4 ms failure naming the executable → a 0 ms refusal
+  naming `goal`.
+
+- **A provider-filtered `sessionflow_recent` could silently under-return.**  The
+  core's `overview` op has no provider parameter, so the filter runs in the
+  plugin — and it asked the core for `limit * 4` rows and hoped the wanted
+  provider was at least a quarter of them.  When it was not, the tool returned
+  fewer rows than asked while the core had plenty more, and the answer was
+  indistinguishable from "there is nothing else".  It now requests the widest
+  window the core honours and marks a window-limited answer with `truncated` so
+  an incomplete list cannot read as a complete one.
+
+- **…and the first version of that `truncated` signal could not see the worst
+  case: the wanted provider sitting entirely *behind* the window.**  The
+  predicate required `matched.length > limit`, i.e. "the filter cut something",
+  but when 250 fresher rows of another provider fill the window the filter
+  matches **nothing** and cuts nothing — so an empty list came back with no
+  marker while the sessions did exist.  Measured on a real 255-session index
+  (250 `claude` ahead of 5 `codex`): `{provider:'codex', limit:5}` returned
+  **0 rows, `truncated` absent**, while `sessions {platform:'codex'}` listed all
+  5.  The condition is now "the core filled the window" rather than "we cut
+  more than `limit`", and it is gated on the call being filtered at all, so an
+  ordinary full page is not relabelled as clipped.
+
+  The fixture could not have caught this: `stub-overview.mjs` ignored `limit`
+  and always answered with the whole payload, so "the core gave us everything"
+  and "the core gave us the window" were the same answer.  It now clips the way
+  a real core does.
+
+- **The echo stub answered with a shape the real core cannot produce.**  The
+  subcommand branch wrapped its reply in an `id`/`result` envelope; a real
+  subcommand with `--json` prints a bare payload (`_handoff_via_engine` does
+  `print(json.dumps(payload))` directly — only the `api` op wraps).  No
+  assertion depended on the envelope, which is why nothing noticed; it is fixed
+  so the fixture cannot hide a future parsing mistake.
+
+- **`sessionflow_merge` silently discarded session ids it did not like.**  The
+  argument was read with `filter(isString && length > 0)`, so `['a:1', 42, '  ']`
+  merged **one** session and reported success: the caller was told the merge
+  happened, with no way to see that two of the ids it named were dropped.  The
+  merge is the unit of consent — the caller names a set and the WorkThread
+  contains exactly that set — so quietly narrowing it is a different operation
+  performed on the caller's behalf.  Every element is now checked, not filtered
+  (`session_ids[i]` names the offending index so the other nine ids can be
+  kept), whitespace-only entries are refused as blank, and a non-array argument
+  is refused too.  Measured: `['a:1', 42]` went from "merged a:1, exit 0" to a
+  refusal naming `session_ids[1]`.
+
+- **A fractional `limit` did not behave the way the code comment claimed.**  The
+  comment said the core rejects `3.7` with `slice indices must be integers`.
+  That is true of `overview` but **not** of `search`, which does
+  `int(limit or 20)` (`api.py:254`) and so truncates `3.7` to `3` — no error, no
+  warning, just fewer hits than were asked for, which reads as a complete
+  answer.  Both behaviors are now documented where they belong and measured:
+
+  | input | `search` (`int()`) | `overview` (raw slice) |
+  |---|---|---|
+  | `limit: 3.7` | 3 rows, silently truncated | `slice indices must be integers` |
+  | `limit: 0` | 20 rows (0 reads as absent) | 0 rows |
+  | `limit: -2` | 33,277 rows (no cap) | 91 of 94 rows |
+
+  The guard itself was already right; only its justification was wrong, and a
+  wrong justification is how a later change removes the guard for the wrong
+  reason.
+
 - **The plugin could not be installed on any current harness.**  Both peer
   ranges excluded the versions users actually run, so `dsh plugin add` ended in
   an `ERESOLVE` that had to be worked around by hand.
