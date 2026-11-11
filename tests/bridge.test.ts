@@ -23,7 +23,7 @@ import { REAL_HOME, TEST_HOME, appdataIsShared, isIsolated } from './isolate.ts'
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -40,6 +40,19 @@ const exec = promisify(execFile);
 // every machine, reporting "no python with the voyager package" for a python
 // that was right there.)
 const PATH_AT_LOAD = process.env['PATH'] ?? '';
+
+// Captured at module load, before any test body can run.  The issue-#6
+// regression re-runs this whole file in a child with VOYAGER_BIN /
+// VOYAGER_PYTHON set to sentinels; the child asserts these two values
+// survived every mechanics test.  Reading them at load (rather than inside
+// the assertion) means a leak cannot hide by being re-read after the fact.
+const AMBIENT_VOYAGER_BIN_AT_LOAD = process.env['VOYAGER_BIN'];
+const AMBIENT_VOYAGER_PYTHON_AT_LOAD = process.env['VOYAGER_PYTHON'];
+/** Set only in the guarded child re-run of the issue-#6 regression below. */
+const ISSUE6_CHILD = process.env['SESSIONFLOW_ISSUE6_CHILD'] === '1';
+/** Sentinel values the parent injects, so a leaked `delete` is observable. */
+const ISSUE6_BIN_SENTINEL = 'dsh-sessionflow-issue6-voyager-bin';
+const ISSUE6_PYTHON_SENTINEL = 'dsh-sessionflow-issue6-voyager-python';
 
 /**
  * How long to wait for a *test-spawned* core.
@@ -66,6 +79,52 @@ async function nodeColdStartMs(): Promise<number> {
 /** Spawn with the PATH this module started with, whatever the tests have done. */
 function execHermetic(file: string, args: string[]) {
   return exec(file, args, { env: { ...process.env, PATH: PATH_AT_LOAD } });
+}
+
+/**
+ * Save/restore for the environment a test is about to mutate.
+ *
+ * Issue #6: the three mechanics tests below used to delete `VOYAGER_BIN` and
+ * `VOYAGER_PYTHON` but restore only `PATH`.  `node:test` runs the tests in a
+ * file sequentially in one process, so those deletions leaked into the later
+ * ambient-env integration tests — when a configured core was the *only* way to
+ * reach a real core (no shim on PATH), they failed with `VOYAGER_NOT_FOUND`.
+ * A test must not mutate the process environment it inherited.
+ *
+ * The restore-or-delete pattern is the same one `recent-provider.test.ts` uses
+ * for `SESSIONFLOW_ECHO_FILE`: a key that was absent must be deleted again,
+ * not set to `undefined` (which Node would coerce to the string "undefined").
+ */
+async function withEnvRestored<T>(keys: string[], fn: () => T | Promise<T>): Promise<T> {
+  const saved = new Map<string, string | undefined>();
+  for (const key of keys) saved.set(key, process.env[key]);
+  const restore = () => {
+    for (const [key, value] of saved) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  };
+  // `fn` is awaited *inside* the try so the environment is only restored after
+  // the async work settles.  Restoring in the microtask that calls `fn()` would
+  // put the ambient values back while `resolveVoyager` is still probing, and a
+  // real core on PATH would make a "no core" test pass by mistake.
+  try {
+    return await fn();
+  } finally {
+    restore();
+    resetBridgeCache();
+  }
+}
+
+/** The three mechanics tests that must prove discovery fails with no core. */
+function withoutVoyagerEnv<T>(fn: () => T | Promise<T>): Promise<T> {
+  return withEnvRestored(['PATH', 'VOYAGER_BIN', 'VOYAGER_PYTHON'], async () => {
+    process.env['PATH'] = '';
+    delete process.env['VOYAGER_BIN'];
+    delete process.env['VOYAGER_PYTHON'];
+    resetBridgeCache();
+    return await fn();
+  });
 }
 
 // Temporary indexes are created under the OS temp dir and removed on exit:
@@ -162,84 +221,121 @@ function shown(e: VoyagerError): string {
 }
 
 test('a missing core points at the source install, never at pipx', async () => {
-  const saved = process.env['PATH'];
-  process.env['PATH'] = '';
-  delete process.env['VOYAGER_BIN'];
-  delete process.env['VOYAGER_PYTHON'];
-  resetBridgeCache();
-  try {
-    await assert.rejects(
-      () => resolveVoyager({ python: 'C:/nope/python.exe' }),
-      (e: unknown) =>
-        e instanceof VoyagerError &&
-        e.code === 'VOYAGER_NOT_FOUND' &&
-        // What the user sees is message + detail, so the hint may sit in either.
-        // PyPI is an unrelated library, so a pipx hint would send the user to
-        // the wrong project.
-        /github\.com\/HarryHeYu\/sessionFlow/.test(shown(e)) &&
-        !/pipx/.test(shown(e)),
-    );
-  } finally {
-    if (saved !== undefined) process.env['PATH'] = saved;
-    resetBridgeCache();
-  }
+  await withoutVoyagerEnv(() => assert.rejects(
+    () => resolveVoyager({ python: 'C:/nope/python.exe' }),
+    (e: unknown) =>
+      e instanceof VoyagerError &&
+      e.code === 'VOYAGER_NOT_FOUND' &&
+      // What the user sees is message + detail, so the hint may sit in either.
+      // PyPI is an unrelated library, so a pipx hint would send the user to
+      // the wrong project.
+      /github\.com\/HarryHeYu\/sessionFlow/.test(shown(e)) &&
+      !/pipx/.test(shown(e)),
+  ));
 });
 
 test('a configured core that fails is named, and is not silently replaced', async () => {
-  const saved = process.env['PATH'];
-  process.env['PATH'] = '';
-  delete process.env['VOYAGER_BIN'];
-  delete process.env['VOYAGER_PYTHON'];
-  resetBridgeCache();
   const bin = process.execPath;
   const stub = join(FIXTURES, 'stub-nocore.mjs');
-  try {
-    await assert.rejects(
-      () => resolveVoyager({ voyagerBin: bin, voyagerArgs: [stub] }),
-      (e: unknown) =>
-        e instanceof VoyagerError &&
-        e.code === 'VOYAGER_NOT_FOUND' &&
-        // Naming the operator's own command is the whole point: the generic
-        // "not installed" text would send them looking for a core they already
-        // configured.
-        e.message.includes(bin) &&
-        e.message.includes(stub) &&
-        /does not work/.test(e.message) &&
-        /exited 127/.test(e.message) &&
-        /configured core does not work/.test(e.message) &&
-        // ...and it must say that falling back is what it refused to do, so the
-        // operator knows the choice was deliberate and how to opt back in.
-        /Refusing to fall back/.test(e.detail ?? '') &&
-        /voyagerBin/.test(e.detail ?? ''),
-    );
-  } finally {
-    if (saved !== undefined) process.env['PATH'] = saved;
-    resetBridgeCache();
-  }
+  await withoutVoyagerEnv(() => assert.rejects(
+    () => resolveVoyager({ voyagerBin: bin, voyagerArgs: [stub] }),
+    (e: unknown) =>
+      e instanceof VoyagerError &&
+      e.code === 'VOYAGER_NOT_FOUND' &&
+      // Naming the operator's own command is the whole point: the generic
+      // "not installed" text would send them looking for a core they already
+      // configured.
+      e.message.includes(bin) &&
+      e.message.includes(stub) &&
+      /does not work/.test(e.message) &&
+      /exited 127/.test(e.message) &&
+      /configured core does not work/.test(e.message) &&
+      // ...and it must say that falling back is what it refused to do, so the
+      // operator knows the choice was deliberate and how to opt back in.
+      /Refusing to fall back/.test(e.detail ?? '') &&
+      /voyagerBin/.test(e.detail ?? ''),
+  ));
 });
 
 test('a PATH core is still used when nothing is configured', async () => {
   // The same broken command, reached the other way: unconfigured, the plugin
   // is free to discover the core, and the discovery failure is the generic
   // one.  This is the contrast that makes the test above meaningful.
-  const saved = process.env['PATH'];
-  process.env['PATH'] = '';
-  delete process.env['VOYAGER_BIN'];
-  delete process.env['VOYAGER_PYTHON'];
-  resetBridgeCache();
-  try {
-    await assert.rejects(
-      () => resolveVoyager({ python: 'C:/nope/python.exe' }),
-      (e: unknown) =>
-        e instanceof VoyagerError &&
-        e.code === 'VOYAGER_NOT_FOUND' &&
-        !/Refusing to fall back/.test(e.detail ?? ''),
-    );
-  } finally {
-    if (saved !== undefined) process.env['PATH'] = saved;
-    resetBridgeCache();
-  }
+  await withoutVoyagerEnv(() => assert.rejects(
+    () => resolveVoyager({ python: 'C:/nope/python.exe' }),
+    (e: unknown) =>
+      e instanceof VoyagerError &&
+      e.code === 'VOYAGER_NOT_FOUND' &&
+      !/Refusing to fall back/.test(e.detail ?? ''),
+  ));
 });
+
+// Issue #6 regression, child half.  The parent (below) re-runs this whole file
+// with VOYAGER_BIN / VOYAGER_PYTHON set to sentinels and a PATH with no core
+// fallback.  The three mechanics tests above delete those keys to prove
+// discovery fails; this checks they put them back.  On the pre-fix code the
+// deletions leaked and this assertion failed — which is the point.  It needs
+// no real core, so it cannot skip into a false green.
+if (ISSUE6_CHILD) {
+  test('the mechanics tests restore VOYAGER_BIN / VOYAGER_PYTHON, not just PATH (issue #6)', () => {
+    assert.equal(process.env['VOYAGER_BIN'], AMBIENT_VOYAGER_BIN_AT_LOAD,
+      'VOYAGER_BIN leaked out of a mechanics test');
+    assert.equal(process.env['VOYAGER_PYTHON'], AMBIENT_VOYAGER_PYTHON_AT_LOAD,
+      'VOYAGER_PYTHON leaked out of a mechanics test');
+    assert.equal(process.env['PATH'], PATH_AT_LOAD,
+      'PATH leaked out of a mechanics test');
+  });
+} else {
+  // Issue #6 regression, parent half.  This is the exact command shape the
+  // maintainer used (`node --test tests/bridge.test.ts`) with the leak's
+  // trigger: VOYAGER_BIN / VOYAGER_PYTHON configured and no core on PATH.
+  // A reduced PATH makes the child hermetic (integration tests skip because
+  // no interpreter can seed an index), so this needs no installed core and
+  // cannot skip into a false green.  The child-half assertion above is what
+  // turns red when a mechanics test leaks the two keys.
+  test('a whole-file run with VOYAGER_BIN configured and no PATH fallback stays green (issue #6)', () => {
+    // `node --test` sets NODE_TEST_CONTEXT=child for its own file processes.
+    // A nested `node --test` inheriting it recursively skips every file and
+    // reports nothing ("node:test run() is being called recursively"), which
+    // would turn this regression into a silent no-op.  Delete it so the child
+    // is a standalone top-level run.
+    const childEnv = { ...process.env } as Record<string, string | undefined>;
+    delete childEnv['NODE_TEST_CONTEXT'];
+    const res = spawnSync(
+      process.execPath,
+      ['--experimental-strip-types', '--test', fileURLToPath(import.meta.url)],
+      {
+        encoding: 'utf8',
+        timeout: 180_000,
+        env: {
+          ...childEnv,
+          SESSIONFLOW_ISSUE6_CHILD: '1',
+          VOYAGER_BIN: ISSUE6_BIN_SENTINEL,
+          VOYAGER_PYTHON: ISSUE6_PYTHON_SENTINEL,
+          // A non-empty path that does not exist: no `voyager` shim and no
+          // python launcher to fall back on, so the child's integration tests
+          // skip.  It must be non-empty because POSIX `execvp` falls back to a
+          // default search path when PATH is unset *or empty* — that would let
+          // a system python resolve and make this regression non-hermetic.
+          PATH: join(tmpdir(), 'dsh-sessionflow-issue6-empty-path'),
+        },
+      },
+    );
+    assert.equal(res.error, undefined, `the child re-run failed to start: ${res.error?.message ?? ''}`);
+    assert.equal(res.status, 0,
+      `a whole-file run with VOYAGER_BIN configured and no PATH fallback had failures:\n` +
+      (res.stdout ?? '') + (res.stderr ?? ''));
+    // Guard against a child that was a no-op (e.g. the file failed to load and
+    // reported zero tests).  Both the mechanics tests and the env assertion
+    // must actually have run and passed.
+    assert.match(res.stdout ?? '', /a missing core points at the source install/,
+      'the child never ran the mechanics tests — the regression proved nothing');
+    assert.match(res.stdout ?? '', /the mechanics tests restore VOYAGER_BIN/,
+      'the child never ran the env-restoration assertion — the regression proved nothing');
+    assert.match(res.stdout ?? '', /fail 0/,
+      'the child reported a failure');
+  });
+}
 
 test('non-JSON output becomes a BAD_JSON error, not a parse crash', async () => {
   resetBridgeCache();

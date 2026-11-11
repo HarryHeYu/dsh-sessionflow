@@ -29,6 +29,9 @@ Windows 冷启动四关 + 真实 bridge 调用通过，Linux CI 补完整 boot �
 - The Core stdin defect is a **v1.3.1 release gate** item. Candidate artifacts
   built before that fix must not be published as the final release.
 
+### Fixed
+- **The bridge mechanics tests leaked `VOYAGER_BIN` / `VOYAGER_PYTHON` into later tests ([#6](https://github.com/HarryHeYu/dsh-sessionflow/issues/6)).** Three tests emptied `PATH` and deleted both keys to prove discovery fails, but their `finally` restored only `PATH`. `node:test` runs a file's tests sequentially in one process, so when a configured core was the *only* way to reach a real core (no shim on PATH), the two ambient-env integration tests that followed failed with `VOYAGER_NOT_FOUND`. A normal PATH masked the leak, which is why CI stayed green. The three tests now save/restore all mutated keys through one helper (restore-or-delete, matching `recent-provider.test.ts`); no product code changed, and `resolveVoyager()`'s "configured binary is authoritative" rule is untouched. A hermetic whole-file regression re-runs the suite with sentinel values and no PATH fallback, so the leak cannot return silently.
+
 ### Added
 - **Two new DSH channels verified and admitted** (2026-10-31): `0.2.1-rc.5`
   (the `next` dist-tag, requires cordis `~4.0.5`) and `0.2.2-alpha.2` (the
