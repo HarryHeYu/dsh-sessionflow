@@ -15,6 +15,20 @@ Windows 冷启动四关 + 真实 bridge 调用通过，Linux CI 补完整 boot �
 
 ## [Unreleased]
 
+### Maintainer verification (2026-11-11, PR #5 merged as `b3fc6b9`)
+- Merged via squash; author attribution retained as @SunnyRad. No plugin
+  version was released. Bridge schema stays `1`; `peerDependencies` unchanged.
+- Verified against real sessionFlow Core `1.3.1` on Windows: `npm ci`,
+  `npm run build`, `npm test` — **96/96 passed, 0 failed, 0 skipped**; the 42
+  targeted regressions **42/42**. Cold-start CI **6/6 success** (5 channels).
+- Three integration-test failures reported by the author were reproduced and
+  compared against `main`: identical failures on both trees. Two are a
+  pre-existing `VOYAGER_BIN` test-order leak (dsh-sessionflow#6), one is the
+  Core-side stdin UTF-8 decoding defect (sessionFlow#21). Neither is caused by
+  this PR; `tests/bridge.test.ts` is byte-identical before and after it.
+- The Core stdin defect is a **v1.3.1 release gate** item. Candidate artifacts
+  built before that fix must not be published as the final release.
+
 ### Added
 - **Two new DSH channels verified and admitted** (2026-10-31): `0.2.1-rc.5`
   (the `next` dist-tag, requires cordis `~4.0.5`) and `0.2.2-alpha.2` (the
