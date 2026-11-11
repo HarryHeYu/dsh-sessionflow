@@ -45,7 +45,7 @@ the suite red.
 You need a `voyager` core only for the real-core integration tests:
 
 ```sh
-pipx install "voyager @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.0"
+pipx install "voyager @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.1"
 voyager integration-info --json    # must print schema_version: 1
 ```
 

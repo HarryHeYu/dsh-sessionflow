@@ -73,7 +73,7 @@ sessionFlow core 才能回答任何问题。本插件不会引入第三个。
 
 | | 来自哪里 | 安装 |
 |---|---|---|
-| **核心** — sessionFlow | **GitHub tag**；不在 PyPI | `pipx install "voyager[all] @ git+…@v1.3.0"` |
+| **核心** — sessionFlow | **GitHub tag**；不在 PyPI | `pipx install "voyager[all] @ git+…@v1.3.1"` |
 | **插件** — 本仓库 | **DSH 的插件机制**；不在 npm | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` |
 
 先装核心：没有它，六个工具照样注册，但每次调用都会失败并指名缺的那个二进制。
@@ -88,7 +88,7 @@ sessionFlow core 才能回答任何问题。本插件不会引入第三个。
 
 ```sh
 # 1. 核心（pin 到本插件版本实测过的发布 tag）
-pipx install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.0"
+pipx install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.1"
 voyager --version     # 应当输出 1.3.0
 voyager scan
 voyager doctor        # 确认核心能跑，并报告 bridge schema 1
@@ -98,7 +98,7 @@ dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow
 dsh --profile web
 ```
 
-没有 `pipx`？`python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.0"`
+没有 `pipx`？`python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.1"`
 也可以。用 `python -m pip` 是有意的：Windows 上 `pip` 常常不在 `PATH` 里，而 `python` 在。
 
 pnpm 默认**不允许** git 来源的包执行构建脚本，所以第一次 `add` 会停下并打印
@@ -184,13 +184,13 @@ dsh --profile web --dump-config | grep dsh-sessionflow
 
 ## 兼容性
 
-**两个仓库各自独立发版**——插件 `1.2.0` 配核心 `1.3.0` 是当前正确的组合，
+**两个仓库各自独立发版**——插件 `1.2.0` 配核心 `1.3.1` 是当前正确的组合，
 版本号不需要相同。真正约束它们的是 **bridge schema**：插件在 `src/bridge.ts`
 里声明 `REQUIRED_SCHEMA_VERSION`，核心在 `voyager integration-info --json` 里报告它。
 
 | 插件 | 核心 | bridge schema |
 |---|---|---|
-| **1.2.0** | `v1.3.0` | 1 |
+| **1.2.0** | `v1.3.1` | 1 |
 | 1.1.0 | `v1.3.0` | 1 |
 
 六个 tool 的兼容性由**非模型**的契约测试保证（输入 → bridge 调用 → 结果格式化，
@@ -198,13 +198,12 @@ dsh --profile web --dump-config | grep dsh-sessionflow
 但**没有**可重复的端到端套件——见[验证状态](#验证状态)。
 
 
-> 核心 **v1.3.0 已发布**，也是下面安装命令实际安装的版本。从 1.1.0 升级是可选的，
+> 核心 **v1.3.1 已发布**，也是下面安装命令实际安装的版本。从 1.1.0 升级是可选的，
 > 除非你使用 `0.2.1-rc.5`（`next`）或 `0.2.2-alpha.2`（`alpha`）这两个渠道——
-> 插件 1.2.0 才接纳它们。
-
-> 核心 **v1.3.1** 目前是候选版本（release candidate），**尚未正式发布**。
-> 插件 1.2.0 已对候选版跑通，`bridge schema` 仍为 `1`；只有 v1.3.1 正式发布后，
-> 这个配对才算"当前正式组合"。
+> 插件 1.2.0 才接纳它们。v1.3.1 相对 v1.3.0 为增量更新：在交接包文本里加入
+> 证据引用、新增 `voyager evidence` 子命令，并修掉了三个 DSH bridge 正确性缺陷——
+> DSH 0.2.1-rc.3 改名的会话文件（`session.v4.jsonl.zstd`）现在能被发现、
+> Windows 下 stdout 改按 UTF-8 写、短于 3 个字符的查询也能返回结果。
 
 DSH 处于 Developer Preview，接口会变。按渠道如实标注达到的等级：
 

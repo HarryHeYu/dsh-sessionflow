@@ -115,11 +115,11 @@ an older one is refused by name rather than misbehaving silently.
 
 | plugin | core | bridge schema |
 |---|---|---|
-| **1.2.0** | `v1.3.0` | `1` |
+| **1.2.0** | `v1.3.1` | `1` |
 | 1.1.0 | `v1.3.0` | `1` |
 
 **The two repos are versioned independently** — plugin `1.2.0` against core
-`1.3.0` is the current, correct pairing, and the numbers are not meant to match.
+`1.3.1` is the current, correct pairing, and the numbers are not meant to match.
 What binds them is the **bridge schema**: `REQUIRED_SCHEMA_VERSION` in
 `src/bridge.ts` is the value the plugin demands, and `voyager integration-info
 --json` is where the core reports it.
@@ -131,17 +131,16 @@ recorded real-model runs, but there is **no repeatable end-to-end suite** for it
 see [verification status](#verification-status) and the prompt-shape note at the
 top. Do not read "the tools work" as "the model will always reach for them".
 
-> **Core v1.3.0 is released and is what the pin below installs.** The current
-> pairing is plugin **v1.2.0** against core **v1.3.0**: the six tools and the
+> **Core v1.3.1 is released and is what the pin below installs.** The current
+> pairing is plugin **v1.2.0** against core **v1.3.1**: the six tools and the
 > bridge schema (`1`) are unchanged from 1.1.0, so upgrading is optional unless
 > you run DSH `0.2.1-rc.5` (next) or `0.2.2-alpha.2` (alpha), which 1.2.0
-> admits. Core v1.3.0 added evidence references inside bundle text and the
-> `voyager evidence` subcommand -- additive only; the plugin passes bundle text
-> through and does not parse it.
->
-> **Core v1.3.1 is a release candidate, not a released version.** Plugin 1.2.0
-> has been run against it and reports bridge schema `1` unchanged; the pairing
-> becomes "current" only when v1.3.1 ships.
+> admits. Core v1.3.1 is additive over v1.3.0 — it added evidence references
+> inside bundle text and the `voyager evidence` subcommand, and fixed three
+> DSH-bridge correctness bugs: DSH 0.2.1-rc.3's renamed transcript
+> (`session.v4.jsonl.zstd`) is now discovered, Windows writes stdout as UTF-8,
+> and queries shorter than three characters return results. The plugin passes
+> bundle text through and does not parse it.
 
 ## Install
 
@@ -150,7 +149,7 @@ is deliberately not on a package registry:
 
 | | Where it comes from | Install |
 |---|---|---|
-| **Core** — sessionFlow | a **GitHub tag**; not on PyPI | `pipx install "voyager[all] @ git+…@v1.3.0"` |
+| **Core** — sessionFlow | a **GitHub tag**; not on PyPI | `pipx install "voyager[all] @ git+…@v1.3.1"` |
 | **Plugin** — this repo | **DSH's plugin mechanism**; not on npm | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` |
 
 Install the core first: without it the six tools still register, but every call
@@ -171,13 +170,13 @@ Two things people get wrong here:
 The core first, pinned to the release this plugin version was tested against:
 
 ```sh
-pipx install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.0"
-voyager --version     # must print 1.3.0
+pipx install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.1"
+voyager --version     # must print 1.3.1
 voyager scan          # build the index from your real agent history
 voyager doctor        # confirm the core runs and reports bridge schema 1
 ```
 
-No `pipx`? `python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.0"`
+No `pipx`? `python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.3.1"`
 works too. `python -m pip` is deliberate: on Windows `pip` is often not on `PATH`
 while `python` is.
 
