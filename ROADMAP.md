@@ -25,7 +25,7 @@ lying.
 | Item | Where | State | Notes |
 |---|---|---|---|
 | Review and merge PR #5 (argv + numeric bounds + `recent` window) | plugin | **MERGED** `b3fc6b9` (2026-11-11) | Squash merge, author attribution @SunnyRad. Real-core verification 96/96, cold-start CI 6/6, final main 102/102. No plugin version released. |
-| Core v1.3.1 release (DSH v4 discovery, UTF-8 stdout, short CJK search) | core | **BLOCKED — new gate item** | Not tagged. [sessionFlow#21](https://github.com/HarryHeYu/sessionFlow/issues/21): `api` stdin uses the legacy Windows code page, so UTF-8 CJK queries silently return 0 rows. [Core PR #19](https://github.com/HarryHeYu/sessionFlow/pull/19) open from @SunnyRad, not merged; artifacts built before it are superseded. |
+| Core v1.3.1 release (DSH v4 discovery, UTF-8 stdout, short CJK search) | core | **REBUILD IN PROGRESS — code fixed** | Not tagged. The stdin fix ([Core PR #19](https://github.com/HarryHeYu/sessionFlow/pull/19), `15723c1`) and the hard-coded test path fix ([sessionFlow#20](https://github.com/HarryHeYu/sessionFlow/issues/20), `b64e964`) are merged. Candidate rebuild + SHA-256 + tests + Plugin `v1.2.0` pairing pending; tag/Release still needs maintainer confirmation. |
 | Test-harness `VOYAGER_BIN` order leak (`bridge.test.ts`) | plugin | open — [#6](https://github.com/HarryHeYu/dsh-sessionflow/issues/6) | Two integration tests fail when `VOYAGER_BIN` is the only Core path; reproduced identically on `main` and PR HEAD, pre-existing. `help wanted`. |
 | Close out plugin issue #1 with the first release that contains the fixes | plugin | open | Must name the version, not just the commit. |
 | Release/documentation consistency | both | done for core, done for plugin README | `scripts/check_consistency.py --strict` in core CI. |
@@ -141,11 +141,14 @@ changes at once either.
 
 **P0 — correctness & release**
 1. PR #5 — **done** (squash-merged, real-core verified).
-2. Core `v1.3.1` — **gated** on [sessionFlow#21](https://github.com/HarryHeYu/sessionFlow/issues/21);
-   [Core PR #19](https://github.com/HarryHeYu/sessionFlow/pull/19) is open, unmerged.
-   Sequence: review + CI + merge of that PR → rebuild wheel/sdist from the final HEAD →
-   recompute SHA-256 → rerun full tests, upgrade path, `twine check`, and this
-   plugin's `v1.2.0` pairing → then a maintainer decision on the tag/Release.
+2. Core `v1.3.1` — **code-level gate cleared**; the stdin fix
+   ([Core PR #19](https://github.com/HarryHeYu/sessionFlow/pull/19), `15723c1`) and
+   the hard-coded test path fix
+   ([sessionFlow#20](https://github.com/HarryHeYu/sessionFlow/issues/20), `b64e964`)
+   are merged. **Candidate rebuild in progress**: rebuild wheel/sdist from the
+   final HEAD (`b64e964`) → recompute SHA-256 → rerun full tests, upgrade path,
+   `twine check`, and this plugin's `v1.2.0` pairing. The tag/Release still needs
+   explicit maintainer confirmation — not done this round.
 
 **P1 — only after the gate closes**
 - Core: OpenCode Adapter Phase 3 (real SQLite schema, incremental scan, WAL and
