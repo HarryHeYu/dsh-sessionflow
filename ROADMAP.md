@@ -24,8 +24,9 @@ lying.
 
 | Item | Where | State | Notes |
 |---|---|---|---|
-| Review and merge PR #5 (argv + numeric bounds + `recent` window) | plugin | **in review** | `merge` and numeric parts verified against a real core; the `recent` `truncated` predicate has a gap (target provider behind the window) and a fixture that cannot see it. |
-| Core v1.3.1 release (DSH v4 discovery, UTF-8 stdout, short CJK search) | core | **candidate built, not tagged** | Artifacts and upgrade path verified; the tag is a maintainer decision. |
+| Review and merge PR #5 (argv + numeric bounds + `recent` window) | plugin | **MERGED** `b3fc6b9` (2026-11-11) | Squash merge, author attribution @SunnyRad. Real-core verification 96/96, cold-start CI 6/6, final main 102/102. No plugin version released. |
+| Core v1.3.1 release (DSH v4 discovery, UTF-8 stdout, short CJK search) | core | **BLOCKED — new gate item** | Not tagged. [sessionFlow#21](https://github.com/HarryHeYu/sessionFlow/issues/21): `api` stdin uses the legacy Windows code page, so UTF-8 CJK queries silently return 0 rows. Fix reserved for @SunnyRad; artifacts built before it are superseded. |
+| Test-harness `VOYAGER_BIN` order leak (`bridge.test.ts`) | plugin | open — [#6](https://github.com/HarryHeYu/dsh-sessionflow/issues/6) | Two integration tests fail when `VOYAGER_BIN` is the only Core path; reproduced identically on `main` and PR HEAD, pre-existing. `help wanted`. |
 | Close out plugin issue #1 with the first release that contains the fixes | plugin | open | Must name the version, not just the commit. |
 | Release/documentation consistency | both | done for core, done for plugin README | `scripts/check_consistency.py --strict` in core CI. |
 | Real-core bridge regression in CI | plugin | **not covered** | CI uses stubs only. A job that installs a pinned core and runs the integration subset is missing. |
@@ -129,6 +130,37 @@ database schema, the continuity engine, or the bridge protocol.
 - **Acceptance**: a user can install the VSIX without cloning; CI uploads the
   artifact.
 - **Level**: `UNIT_TESTED` + a manual install check. Difficulty: medium.
+
+---
+
+## Next-stage execution order (2026-11-11)
+
+Two release items were independent and are now resolved or gated; do not let
+either one block all other work, but do not open several cross-repo protocol
+changes at once either.
+
+**P0 — correctness & release**
+1. PR #5 — **done** (squash-merged, real-core verified).
+2. Core `v1.3.1` — **gated** on [sessionFlow#21](https://github.com/HarryHeYu/sessionFlow/issues/21).
+   Sequence: contributor's stdin fix → rebuild wheel/sdist from the final HEAD →
+   recompute SHA-256 → rerun full tests, upgrade path, `twine check`, and this
+   plugin's `v1.2.0` pairing → then a maintainer decision on the tag/Release.
+
+**P1 — only after the gate closes**
+- Core: OpenCode Adapter Phase 3 (real SQLite schema, incremental scan, WAL and
+  error recovery, tool-call mapping; synthetic tests stay labelled synthetic).
+- Core: Provider Capability Matrix, DSH provenance classifier.
+- Plugin: Bridge/Tool contract maintenance and real-core contract tests.
+- Plugin: `sessionflow_evidence_verify` design — reuse Core's five-state verify,
+  never re-implement it here; a `MATCH` proves a reference, not a fact.
+
+**P2**
+- Native Resume live verification (keep `NOT_VERIFIED` until observed), VSIX,
+  macOS CI, DSH canary, and the Windows CI jobs (A2 / D2).
+
+Claimable work is listed below and in the two repos' Issues. `help wanted` does
+not imply a deadline. See [#6](https://github.com/HarryHeYu/dsh-sessionflow/issues/6)
+for a small, test-only first task.
 
 ---
 
