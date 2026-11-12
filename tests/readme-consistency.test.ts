@@ -99,7 +99,8 @@ test('install examples pin a version, not a moving branch', () => {
     for (const m of s.matchAll(/sessionFlow\.git@v(\d+\.\d+\.\d+)/g)) pins.add(m[1]);
   }
   assert.ok(pins.size > 0, 'at least one install example must pin a tag');
-  // Core v1.3.0 is the released tag this plugin version was tested against.
-  // v1.3.1 is a release candidate and must NOT appear as a stable pin yet.
-  assert.deepEqual([...pins].sort(), ['1.3.0']);
+  // Core v1.3.1 is the released tag this plugin version was tested against;
+  // both READMEs' install examples were updated to pin it in 0f1724a ("docs:
+  // reflect Core v1.3.1 as released (README pins, pairing table, stale RC note)").
+  assert.deepEqual([...pins].sort(), ['1.3.1']);
 });
