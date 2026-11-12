@@ -1,5 +1,5 @@
 /**
- * Plugin load contract: `apply(ctx)` registers exactly the six sessionflow_*
+ * Plugin load contract: `apply(ctx)` registers exactly the seven sessionflow_*
  * tools, each with a model-facing description and a parameter schema.
  *
  * The tools are built with the real `defineTool`, so a malformed parameter
@@ -23,6 +23,7 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools';
 import {
   apply, inject, name,
   searchTool, recentTool, sessionTool, currentWorkTool, continueTool, mergeTool,
+  evidenceVerifyTool,
 } from '../lib/index.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -71,12 +72,13 @@ test('the plugin declares its name and the tools service', () => {
   assert.deepEqual(inject, ['tools']);
 });
 
-test('apply registers exactly the six sessionflow_* tools', () => {
+test('apply registers exactly the seven sessionflow_* tools', () => {
   const { ctx, registered } = fakeContext();
   apply(ctx as never, STUB);
   assert.deepEqual(registered.map((t) => t.name).sort(), [
     'sessionflow_continue',
     'sessionflow_current_work',
+    'sessionflow_evidence_verify',
     'sessionflow_merge',
     'sessionflow_recent',
     'sessionflow_search',
