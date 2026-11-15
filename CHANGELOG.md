@@ -3,18 +3,12 @@
 Notable changes to `dsh-sessionflow`, newest first.  The full write-up for each
 release is in `docs/release-<version>.md`.
 
-## [1.2.0] — 2026-10-31
+## [1.3.0] — 2026-11-15 (release candidate; tag and Release not yet published)
 
-**渠道兼容跟进（R1）**：验证并接纳 DSH `0.2.1-rc.5`（`next`）与
-`0.2.2-alpha.2`（`alpha`）。peer range 显式命名两条新 prerelease 线；
-Windows 冷启动四关 + 真实 bridge 调用通过，Linux CI 补完整 boot 门。
-发布说明：[docs/release-v1.2.0.md](docs/release-v1.2.0.md)。
+第七个 tool：`sessionflow_evidence_verify`。发布说明：
+[docs/release-v1.3.0.md](docs/release-v1.3.0.md)。
 
-另含 [Unreleased] 中的全部修复（peer range 修复、探测超时、并发解析、
-测试隔离）。详见完整 Changelog。
-
-## [Unreleased]
-### Added — `sessionflow_evidence_verify` (seventh tool, unreleased)
+### Added — `sessionflow_evidence_verify` (seventh tool)
 
 - A thin `callOp()` adapter over Core v1.5.0's additive `evidence_verify` op;
   returns the Core's five-state verdict dict verbatim (no exit-code
@@ -28,6 +22,10 @@ Windows 冷启动四关 + 真实 bridge 调用通过，Linux CI 补完整 boot �
 - Bridge schema stays `1`; `REQUIRED_CORE_REF`, peer ranges and
   `resolveVoyager()` are untouched. Integration acceptance runs against the
   **published** Core v1.5.0 assets (not a locally built wheel).
+- Install pairing is Core **v1.5.0** (see both READMEs): the seventh
+  tool needs that Core's `evidence_verify` op. The six existing tools
+  still work on older cores; on a core without the op the seventh tool
+  reports `unknown op` as a capability error, never an evidence verdict.
 
 
 ### Maintainer verification (2026-11-11, PR #5 merged as `b3fc6b9`)
@@ -243,6 +241,16 @@ Windows 冷启动四关 + 真实 bridge 调用通过，Linux CI 补完整 boot �
   "Not run" is the honest entry for 0.1.7-rc.2: it resolves, and nothing more is
   claimed.  `tests/peer-range.test.ts` carries the same per-channel status, so a
   range cannot be widened without someone deciding what the new row's status is.
+
+## [1.2.0] — 2026-10-31
+
+**渠道兼容跟进（R1）**：验证并接纳 DSH `0.2.1-rc.5`（`next`）与
+`0.2.2-alpha.2`（`alpha`）。peer range 显式命名两条新 prerelease 线；
+Windows 冷启动四关 + 真实 bridge 调用通过，Linux CI 补完整 boot 门。
+发布说明：[docs/release-v1.2.0.md](docs/release-v1.2.0.md)。
+
+另含 [Unreleased] 中的全部修复（peer range 修复、探测超时、并发解析、
+测试隔离）。详见完整 Changelog。
 
 ## [1.1.0] — 2026-10-11
 
