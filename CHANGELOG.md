@@ -3,7 +3,7 @@
 Notable changes to `dsh-sessionflow`, newest first.  The full write-up for each
 release is in `docs/release-<version>.md`.
 
-## [1.3.0] — 2026-11-15 (release candidate; tag and Release not yet published)
+## [1.3.0] — 2026-11-15
 
 第七个 tool：`sessionflow_evidence_verify`。发布说明：
 [docs/release-v1.3.0.md](docs/release-v1.3.0.md)。
