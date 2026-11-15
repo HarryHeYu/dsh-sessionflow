@@ -69,11 +69,12 @@ tag peeled = `ab42a2550e66b4e2f998a757c88cfd2d2987d4ca`。
 
 ## 剩余门禁（发布前）
 
-1. **创建并推送 annotated tag `v1.3.0`** —— 需维护者明确授权，本轮不执行。
+1. **创建并推送 annotated tag `v1.3.0`** —— 需维护者明确授权；本文件定稿时
+   尚未执行。
 2. 创建 GitHub Release（非 draft）并标记 latest。
-3. tag 发布后复核中英 README 的 current-release 链接可访问
+3. tag 推送**之后**复核中英 README 的 current-release 链接可访问
    （`scripts/check-readme-links.mjs`，可选在线检查，不在 `npm test` 内）。
-   **本轮已跑，当前 exit 1 是预期的 pre-tag 状态，不是缺陷**：
+   **在 tag 推送之前它必然是 exit 1 —— 这是预期的 pre-tag 状态，不是缺陷**：
 
    ```text
    OK       README.md: HarryHeYu/sessionFlow v1.5.0
@@ -83,8 +84,7 @@ tag peeled = `ab42a2550e66b4e2f998a757c88cfd2d2987d4ca`。
    ```
 
    两个 Core pin 已指向真实发布的 tag；只有本仓尚未创建的 `v1.3.0`
-   tag 失败。**在 tag 推送之前这条检查必然是 exit 1，这是预期的 pre-tag
-   状态，不是缺陷**；tag 推送后必须变成 exit 0。离线契约测试
+   tag 失败。tag 推送后这条检查必须变成 exit 0。离线契约测试
    （`tests/readme-consistency.test.ts`）不读远端，保持全绿。
 4. ~~发布后把 "release candidate — tag not yet published" 的括注去掉；
    CHANGELOG 条目改为正式日期。~~ **已完成**：本文件所在 PR 去掉了中英
