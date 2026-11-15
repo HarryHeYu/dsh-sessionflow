@@ -1,11 +1,13 @@
-# Release v1.3.0 — 第七个 tool（发布候选）
+# Release v1.3.0 — 第七个 tool
 
-状态：**Release Candidate，尚未创建 Tag、尚未发布 GitHub Release**。
-本文件是发布准备记录，不是"已发布"声明。发布需要维护者另行授权。
+本文件是 v1.3.0 的发布说明。**发布 = 打 annotated tag `v1.3.0` 并创建
+GitHub Release**；在本仓存在该 tag 之前，v1.3.0 不是已发布版本。文案已在
+本文件所在 PR 中定稿，所以 tag 树上的内容就是最终内容，打完 tag 不再改动。
 
-建立在 Plugin `main` = `96567af276406f8121cb17ee0a8f5654f5b4962a`
-（PR #10 squash 合并，作者 @SunnyRad）之上。Core `v1.5.0` 已于
-2026-11-14 正式发布，tag peeled = `ab42a2550e66b4e2f998a757c88cfd2d2987d4ca`。
+建立在 Plugin `main` = `ea8795d57c654c0fb179e4cddc34ef52d8e6d4f7`
+（PR #11 squash 合并；内容来自 `75831f0`。第七个 tool 本身来自 PR #10，
+作者 @SunnyRad）之上。Core `v1.5.0` 已于 2026-11-14 正式发布，
+tag peeled = `ab42a2550e66b4e2f998a757c88cfd2d2987d4ca`。
 
 ## 本版改动
 
@@ -67,11 +69,12 @@
 
 ## 剩余门禁（发布前）
 
-1. **创建并推送 annotated tag `v1.3.0`** —— 需维护者明确授权，本轮不执行。
+1. **创建并推送 annotated tag `v1.3.0`** —— 需维护者明确授权；本文件定稿时
+   尚未执行。
 2. 创建 GitHub Release（非 draft）并标记 latest。
-3. tag 发布后复核中英 README 的 current-release 链接可访问
+3. tag 推送**之后**复核中英 README 的 current-release 链接可访问
    （`scripts/check-readme-links.mjs`，可选在线检查，不在 `npm test` 内）。
-   **本轮已跑，当前 exit 1 是预期的 pre-tag 状态，不是缺陷**：
+   **在 tag 推送之前它必然是 exit 1 —— 这是预期的 pre-tag 状态，不是缺陷**：
 
    ```text
    OK       README.md: HarryHeYu/sessionFlow v1.5.0
@@ -81,10 +84,11 @@
    ```
 
    两个 Core pin 已指向真实发布的 tag；只有本仓尚未创建的 `v1.3.0`
-   tag 失败。这与 Core 仓的 tag/README 时序问题同类，但本轮**不改**
-   离线契约测试、不提前建 tag。tag 推送后此检查应为 exit 0。
-4. 发布后把 "release candidate — tag not yet published" 的括注去掉；
-   CHANGELOG 条目改为正式日期。
+   tag 失败。tag 推送后这条检查必须变成 exit 0。离线契约测试
+   （`tests/readme-consistency.test.ts`）不读远端，保持全绿。
+4. ~~发布后把 "release candidate — tag not yet published" 的括注去掉；
+   CHANGELOG 条目改为正式日期。~~ **已完成**：本文件所在 PR 去掉了中英
+   README 的 RC 括注，CHANGELOG 的 `[1.3.0]` 改为正式条目。
 5. Plugin #9 在第七个 tool 正式发布前保持 Open。
 
 ## 发布时序（tag 落在最终文案上，事后不改 tag）
@@ -96,11 +100,11 @@ CI 才能建"的环。`check-readme-links.mjs` 是**可选在线检查**，不�
 
 顺序：
 
-1. 合并本 RC：README 带 `release candidate — tag not yet published`，
-   这是当时唯一诚实的说法。
-2. **打 tag 之前**，合并一个只改文档的小 PR：去掉 RC 括注、CHANGELOG 日期
-   改成正式日期。此时 main 短暂声称一个尚未存在的 tag —— 窗口以分钟计，
-   且没有任何 CI 门禁依赖该链接。
+1. ~~合并 RC：README 带 `release candidate — tag not yet published`。~~
+   **已完成**（PR #11 → `ea8795d`）——那是当时唯一诚实的说法。
+2. ~~打 tag 之前，合并一个只改文档的小 PR：去掉 RC 括注、CHANGELOG 改成
+   正式条目。~~ **已完成**（本文件所在 PR）。此时 main 短暂声称一个尚未
+   存在的 tag —— 窗口以分钟计，且没有任何 CI 门禁依赖该链接。
 3. 在**那个** commit 上打 annotated tag `v1.3.0`，同刻创建 Release
    （非 draft、latest）。
 4. 发布后跑 `scripts/check-readme-links.mjs`，必须 exit 0。
