@@ -11,14 +11,14 @@ Codex、Claude Code 等受支持 Agent 中做过的工作。
 
 |  |  |
 |---|---|
-| **是什么** | 一个薄的 DSH 插件，把 sessionFlow 的接续层以六个 `sessionflow_*` tool 暴露出来。 |
+| **是什么** | 一个薄的 DSH 插件，把 sessionFlow 的接续层以七个 `sessionflow_*` tool 暴露出来。 |
 | **为什么用** | 在 Codex / Claude Code / Grok / ZCode 里开始的工作不必停在 Agent 边界——可以在 DSH 里接着做，目标、文件、命令和未完成事项都还在。 |
 | **安装** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` —— [详见](#安装)。需要可用的模型 provider **以及** sessionFlow core。 |
 | **试用** | 直接用自然语言说：*"继续我之前在 Claude Code 里对这个仓库做的工作。"* 完整流程见 [5 分钟上手指南](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md)。 |
 | **当前版本** | [v1.2.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.2.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 / 0.2.1-rc.5 / 0.2.2-alpha.2（工具调用已跑通）· Node ≥ 22.19 · bridge schema 1 |
 | **已知限制** | 由 Agent 发起的 native resume **尚未**验证 —— 见 [验证状态](#验证状态) |
 
-不是"又一个 session 管理器"，而是把 sessionFlow 的接续层以六个 tool 的形式提供给 DSH。
+不是"又一个 session 管理器"，而是把 sessionFlow 的接续层以七个 tool 的形式提供给 DSH。
 
 ```
 用户：  继续我之前在 Claude Code 里对这个仓库做的工作。
@@ -44,7 +44,7 @@ Kiro ────────┘
 ## 这是什么
 
 一个薄的 DSH 插件，把 [sessionFlow](https://github.com/HarryHeYu/sessionFlow)
-（Voyager）暴露为六个 tool。sessionFlow 会索引你机器上所有编码 Agent 的会话历史；
+（Voyager）暴露为七个 tool。sessionFlow 会索引你机器上所有编码 Agent 的会话历史；
 本插件让 DSH Agent 能用上这段历史——找到过去的工作、看清当前项目做到哪了、并接着做。
 
 **核心始终是唯一事实来源。** 会话解析、索引、搜索、WorkThread、排序、合并、上下文编译
@@ -76,7 +76,7 @@ sessionFlow core 才能回答任何问题。本插件不会引入第三个。
 | **核心** — sessionFlow | **GitHub tag**；不在 PyPI | `pipx install "voyager[all] @ git+…@v1.3.1"` |
 | **插件** — 本仓库 | **DSH 的插件机制**；不在 npm | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` |
 
-先装核心：没有它，六个工具照样注册，但每次调用都会失败并指名缺的那个二进制。
+先装核心：没有它，七个工具照样注册，但每次调用都会失败并指名缺的那个二进制。
 
 两个常见误解：
 
@@ -146,9 +146,28 @@ dsh --profile web --dump-config | grep dsh-sessionflow
 | `sessionflow_current_work` | "**这个**项目我做到哪了？" |
 | `sessionflow_continue` | "接着做。" |
 | `sessionflow_merge` | "把这些会话合起来，我接着做。" |
+| `sessionflow_evidence_verify` | "这条 Evidence Reference（seq N · #digest）指向的事件，还是当初记录的那条吗？" |
 
-六个 tool 统一用 `sessionflow_*` 前缀，不存在第二套 `voyager_*` 名称。
+
+七个 tool 统一用 `sessionflow_*` 前缀，不存在第二套 `voyager_*` 名称。
 每个 tool 返回结构化数据 + 适合模型消费的渲染。
+
+### 第七个 tool：`sessionflow_evidence_verify`
+
+本分支新增（核心 `v1.5.0` 提供加性 `evidence_verify` API op；插件仍是薄的
+`callOp()` 透传）。它只回答一个问题：*某条 Evidence Reference（`seq N · #digest`）
+指向的事件，是否还是当初记录时的那条事件？* 核心按名返回五种判决 ——
+`MATCH` / `MISMATCH` / `NOT_FOUND` / `UNVERIFIABLE` / `INVALID_REFERENCE` ——
+tool 原样透传该 dict。
+
+两处措辞上的诚实边界：
+
+- **`MATCH` 不等于「claim 为真」**：它只说明索引里的事件与记录的 digest 一致，
+  不评判该事件所载说法的真假。
+- **`INVALID_REFERENCE` 是核心的态，不是「没有这个态」**：核心可以产出它
+  （`seq` 非整数、或 digest 畸形）。本 tool 在 spawn 之前就 pre-reject 这两类
+  畸形引用，因此**经本工具不可达**；它由透传原样保留，对任何直接把这类引用
+  发给核心的调用方仍然可达。本地提前拒绝 ≠ 核心没有该态。
 
 ### 同一仓库有多条 WorkThread 时
 
@@ -193,7 +212,7 @@ dsh --profile web --dump-config | grep dsh-sessionflow
 | **1.2.0** | `v1.3.1` | 1 |
 | 1.1.0 | `v1.3.0` | 1 |
 
-六个 tool 的兼容性由**非模型**的契约测试保证（输入 → bridge 调用 → 结果格式化，
+七个 tool 的兼容性由**非模型**的契约测试保证（输入 → bridge 调用 → 结果格式化，
 对着真实核心和临时索引）。模型**自主选择**这些 tool 在真实模型回合里被观察到过，
 但**没有**可重复的端到端套件——见[验证状态](#验证状态)。
 
@@ -232,7 +251,7 @@ DSH 处于 Developer Preview，接口会变。按渠道如实标注达到的等�
 |---|---|---|
 | bridge 机制：解析、超时、坏 JSON、非零退出、schema 闸门 | **PASS（unit）** | `tests/bridge.test.ts`，stub 可执行文件 |
 | 与真实核心的 JSON 往返 | **PASS（integration）** | `tests/bridge.test.ts`，真实 `voyager` + 临时索引 |
-| 六个 tool 用真实 `defineTool` 注册 | **PASS（unit）** | `tests/plugin.test.ts` |
+| 七个 tool 用真实 `defineTool` 注册 | **PASS（unit）** | `tests/plugin.test.ts` |
 | DSH bundle discovery | **LIVE VERIFIED** | `dsh plugin --profile … install` 把 `dsh-sessionflow` 写进 `dsh.profile.bundles` |
 | DSH composition tree | **LIVE VERIFIED** | `dsh --profile … --dump-config` 显示 `- id: dsh-sessionflow` |
 | DSH 真的 import 并 apply 了插件 | **INSTALL VERIFIED（Linux CI）** | 启动能走到凭证门且无 import 报错；**`--dump-config` 单独证明不了这一点** —— 它从不 import 插件 |

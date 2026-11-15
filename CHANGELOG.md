@@ -14,6 +14,21 @@ Windows 冷启动四关 + 真实 bridge 调用通过，Linux CI 补完整 boot �
 测试隔离）。详见完整 Changelog。
 
 ## [Unreleased]
+### Added — `sessionflow_evidence_verify` (seventh tool, unreleased)
+
+- A thin `callOp()` adapter over Core v1.5.0's additive `evidence_verify` op;
+  returns the Core's five-state verdict dict verbatim (no exit-code
+  interpretation, no verdict reinterpretation). Tool surface: 6 → 7.
+- `INVALID_REFERENCE` reachability is documented honestly: the Core can emit
+  it, while this tool pre-rejects malformed refs before spawn, so it is
+  unreachable *through this tool* but preserved by the pass-through.
+- Contract tests assert the full **12-key** real-Core response shape
+  (published v1.5.0 `evidence.verify()`), including `session`, `source_stat`,
+  `found_kind`, `found_summary` — not the earlier 8-key subset.
+- Bridge schema stays `1`; `REQUIRED_CORE_REF`, peer ranges and
+  `resolveVoyager()` are untouched. Integration acceptance runs against the
+  **published** Core v1.5.0 assets (not a locally built wheel).
+
 
 ### Maintainer verification (2026-11-11, PR #5 merged as `b3fc6b9`)
 - Merged via squash; author attribution retained as @SunnyRad. No plugin

@@ -1,6 +1,6 @@
 /**
  * Shared tool plumbing: one output projection and one error translation, so
- * six tools cannot render or fail six different ways.
+ * the tools cannot render or fail in different ways.
  */
 
 import { VoyagerError } from '../bridge.js';

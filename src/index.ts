@@ -3,8 +3,8 @@
  *
  * Cross-agent session continuity for DeepSeek Harness.  Continue work from
  * Codex, Claude Code, Grok, ZCode and the other coding agents directly inside
- * DSH.  The plugin is a **thin adapter**: it registers six tools and forwards
- * every call to the existing sessionFlow/Voyager core over its stable JSON
+ * DSH.  The plugin is a **thin adapter**: it registers the sessionflow_* tools
+ * and forwards every call to the existing sessionFlow/Voyager core over its stable JSON
  * interface.  No session parsing, indexing, ranking, merging or context
  * compilation happens here — the core stays the single source of truth.
  *
@@ -23,6 +23,7 @@ import { sessionTool } from './tools/session.js';
 import { currentWorkTool } from './tools/current-work.js';
 import { continueTool } from './tools/continue.js';
 import { mergeTool } from './tools/merge.js';
+import { evidenceVerifyTool } from './tools/evidence-verify.js';
 
 export const name = 'dsh-sessionflow';
 
@@ -69,6 +70,7 @@ export function apply(ctx: Context, config: Config = {}): void {
       currentWorkTool(bridge),
       continueTool(bridge),
       mergeTool(bridge),
+      evidenceVerifyTool(bridge),
     ];
     const disposers = tools.map((tool) => ctx.tools.register(tool));
     return () => {
@@ -86,4 +88,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     });
 }
 
-export { searchTool, recentTool, sessionTool, currentWorkTool, continueTool, mergeTool };
+export {
+  searchTool, recentTool, sessionTool, currentWorkTool, continueTool, mergeTool,
+  evidenceVerifyTool,
+};

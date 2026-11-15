@@ -4,7 +4,7 @@
  * Offline: it never calls a model and never needs credentials.  It drives the
  * plugin's own bridge, so a failure tells you which layer is at fault:
  *
- *   plugin  -> resolveVoyager / assertCompatible / the six registrations
+ *   plugin  -> resolveVoyager / assertCompatible / the seven registrations
  *   core    -> the real `voyager` on PATH, if there is one
  *   host    -> whether the module loads at all under this Node
  *
@@ -38,7 +38,7 @@ function tmpRoot() {
   return dir;
 }
 
-test('the built plugin loads and exports the six tools', async () => {
+test('the built plugin loads and exports the seven tools', async () => {
   assert.ok(fs.existsSync(BRIDGE), 'lib/bridge.js is missing — run `npm run build`');
   const mod = await import(new URL('file://' + BRIDGE).href);
   for (const fn of ['resolveVoyager', 'integrationInfo', 'assertCompatible']) {
@@ -47,7 +47,7 @@ test('the built plugin loads and exports the six tools', async () => {
 
   const index = await import(new URL('file://' + path.join(REPO, 'lib', 'index.js')).href);
   const expected = ['searchTool', 'recentTool', 'sessionTool', 'currentWorkTool',
-                    'continueTool', 'mergeTool'];
+                    'continueTool', 'mergeTool', 'evidenceVerifyTool'];
   for (const name of expected) {
     assert.equal(typeof index[name], 'function', `index.js does not export ${name}`);
   }
@@ -64,7 +64,7 @@ test('every tool carries a distinct sessionflow_ name and a description', async 
   // the registered definition without calling the core.
   const names = [];
   for (const key of ['searchTool', 'recentTool', 'sessionTool', 'currentWorkTool',
-                     'continueTool', 'mergeTool']) {
+                     'continueTool', 'mergeTool', 'evidenceVerifyTool']) {
     const tool = index[key]({});
     assert.equal(typeof tool.name, 'string', `${key} has no name`);
     assert.ok(tool.name.startsWith('sessionflow_'),
@@ -75,7 +75,7 @@ test('every tool carries a distinct sessionflow_ name and a description', async 
       `${key} declares no parameters`);
     names.push(tool.name);
   }
-  assert.equal(new Set(names).size, 6, `duplicate tool names: ${names.join(', ')}`);
+  assert.equal(new Set(names).size, 7, `duplicate tool names: ${names.join(', ')}`);
 });
 
 /** What a user is shown: describeError() joins message and detail. */
