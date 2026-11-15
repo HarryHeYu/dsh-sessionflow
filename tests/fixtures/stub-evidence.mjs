@@ -4,8 +4,9 @@
 // Shape is NOT invented: `voyager/api.py::evidence_verify` returns
 // `evidence.verify(...)` verbatim as `{id, result}`, and `verify()` builds the
 // result dict. The PUBLISHED Core v1.5.0 `evidence.py::verify()` returns a
-// 12-field dict for a found session (captured live from the released wheel on
-// 2026-11-14, see reports/c1-phase2-execution.md):
+// 12-field dict for a found session. Source of truth: `voyager/evidence.py` in
+// the sessionFlow repo at tag `v1.5.0`; reproduce with that release's wheel by
+// seeding one synthetic session and calling the `evidence_verify` op.
 //
 //   digest, exit_code, found_digest, found_kind, found_summary, message,
 //   seq, session, session_id, source_available, source_stat, status
@@ -14,8 +15,12 @@
 // digest / found_digest / source_available / message). The four extra fields
 // `found_kind`, `found_summary`, `session`, `source_stat` are added only on the
 // branches that reach a found event (MATCH / MISMATCH; UNVERIFIABLE adds
-// `session` + `source_stat` but not the two `found_*` keys; NOT_FOUND and
-// INVALID_REFERENCE return early with the base 8). `session` is the full session
+// `session` + `source_stat` but not the two `found_*` keys).
+// `NOT_FOUND` has TWO real shapes: the base 8 when the session itself is
+// unknown, and 10 (base + `session` + `source_stat`) when the session exists but
+// the seq does not. This stub models the 8-key branch only; the 10-key branch is
+// covered against the real Core, never here. `INVALID_REFERENCE` returns the
+// base 8. `session` is the full session
 // row, `source_stat` a nested 8-key stat dict, `found_summary` a one-line
 // "<kind>: <body>" string.
 //

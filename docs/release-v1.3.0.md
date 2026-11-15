@@ -89,8 +89,11 @@
 
 ## 非阻塞观察（不进入本版修复）
 
-- PR #10 的测试注释引用 `reports/c1-phase2-execution.md`，该文件不在两仓树中
-  （悬空出处）。12 键结构已由维护者独立实证，不影响运行时。
+- ~~PR #10 的测试注释引用 `reports/c1-phase2-execution.md`，该文件不在两仓树中
+  （悬空出处）。~~ **本版已修**：`tests/evidence-verify.test.ts` 与
+  `tests/fixtures/stub-evidence.mjs` 的注释改为指向真实来源（sessionFlow
+  `v1.5.0` 的 `voyager/evidence.py::verify()` + Release 链接 + 可重复的复现步骤），
+  12 键结构由同文件里的断言钉住，不再依赖树外文档。
 - stub 只建模 `NOT_FOUND` 的 8 键早返回分支；真实 Core 在"session 存在但
   seq 缺失"时返回 10 键（仍带 `session`/`source_stat`）。工具是 verbatim
   透传，10 键情形实测正确流经。

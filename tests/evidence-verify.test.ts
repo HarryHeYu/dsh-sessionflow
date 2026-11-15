@@ -31,9 +31,18 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const STUB = join(HERE, 'fixtures', 'stub-evidence.mjs');
 
 /**
- * The 12 keys a real `MATCH` verdict carries. Captured LIVE from the PUBLISHED
- * Core v1.5.0 wheel on 2026-11-14 (seeded `codex:s1`, `api.evidence_verify`),
- * not guessed: `reports/c1-phase2-execution.md` records the exact JSON.
+ * The 12 keys a real `MATCH` verdict carries, captured from the PUBLISHED Core
+ * v1.5.0 wheel (seeded `codex:s1`, `api.evidence_verify`) -- not guessed.
+ *
+ * Producer: `voyager/evidence.py::verify()` in the sessionFlow repo at tag
+ * `v1.5.0` (https://github.com/HarryHeYu/sessionFlow/releases/tag/v1.5.0). It
+ * starts from the base 8 keys and adds `session`, `source_stat`, `found_kind`
+ * and `found_summary` only on the found-event branch.
+ *
+ * Reproduce: install that release's wheel, seed one synthetic session, then call
+ * the `evidence_verify` op twice -- with a digest (MATCH, 12 keys) and without
+ * one (UNVERIFIABLE, 10 keys). The assertions below are the contract: if the
+ * Core shape changes, this file fails instead of silently accepting it.
  */
 const REAL_MATCH_KEYS = [
   'digest', 'exit_code', 'found_digest', 'found_kind', 'found_summary',
