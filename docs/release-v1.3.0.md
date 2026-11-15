@@ -87,6 +87,29 @@
    CHANGELOG 条目改为正式日期。
 5. Plugin #9 在第七个 tool 正式发布前保持 Open。
 
+## 发布时序（tag 落在最终文案上，事后不改 tag）
+
+本仓**没有** release workflow（`.github/workflows/` 只有 `cold-start.yml`），
+所以发布 = 打 tag + 建 GitHub Release，不存在"CI 需要 tag 才能过、tag 又需要
+CI 才能建"的环。`check-readme-links.mjs` 是**可选在线检查**，不在 `npm test`
+内，也不阻塞任何 CI job。
+
+顺序：
+
+1. 合并本 RC：README 带 `release candidate — tag not yet published`，
+   这是当时唯一诚实的说法。
+2. **打 tag 之前**，合并一个只改文档的小 PR：去掉 RC 括注、CHANGELOG 日期
+   改成正式日期。此时 main 短暂声称一个尚未存在的 tag —— 窗口以分钟计，
+   且没有任何 CI 门禁依赖该链接。
+3. 在**那个** commit 上打 annotated tag `v1.3.0`，同刻创建 Release
+   （非 draft、latest）。
+4. 发布后跑 `scripts/check-readme-links.mjs`，必须 exit 0。
+5. 发布后不再改 tag。
+
+为什么不选"先打 tag、再补文档 commit"：那样 tag 树里的 README 会永远停在
+RC 措辞，而 tag 不可变。选 2 的唯一代价是第 2→3 步之间的短暂窗口，比让
+tag 永久带着过时措辞小得多。
+
 ## 非阻塞观察（不进入本版修复）
 
 - ~~PR #10 的测试注释引用 `reports/c1-phase2-execution.md`，该文件不在两仓树中
