@@ -8,7 +8,7 @@ Two repos, one system:
 
 - **sessionFlow** (core) — adapters, index, search, continuity, WorkThread,
   provenance, evidence. https://github.com/HarryHeYu/sessionFlow
-- **dsh-sessionflow** (this plugin) — six `sessionflow_*` tools, the bridge, DSH
+- **dsh-sessionflow** (this plugin) — seven `sessionflow_*` tools, the bridge, DSH
   host compatibility. It does not re-implement core behaviour.
 
 Verification levels used below: `UNIT_TESTED`, `INTEGRATION_TESTED`,
@@ -28,7 +28,8 @@ lying.
 | Core v1.3.1 release (DSH v4 discovery, UTF-8 stdout, short CJK search) | core | **RELEASED** — tag `v1.3.1` (`81d7e3b`), GitHub Release published 2026-11-11, wheel + sdist attached | The stdin fix ([Core PR #19](https://github.com/HarryHeYu/sessionFlow/pull/19), `15723c1`), the `api serve` parser fix and the hard-coded test path fix ([sessionFlow#20](https://github.com/HarryHeYu/sessionFlow/issues/20), `b64e964`) are merged and shipped. Full tests, artifact SHA-256, upgrade path and Plugin `v1.2.0` pairing verified. Install `@v1.3.1`. |
 | Test-harness `VOYAGER_BIN` order leak (`bridge.test.ts`) | plugin | **CLOSED** — [PR #7](https://github.com/HarryHeYu/dsh-sessionflow/pull/7) squash-merged as `f39be17` (author @SunnyRad) | The three mechanics tests now restore all three env keys; a hermetic whole-file regression pins it. Verified against real Core 1.3.1: 33 pass / 0 skipped. [#6](https://github.com/HarryHeYu/dsh-sessionflow/issues/6) is closed. |
 | Close out plugin issue #1 with the first release that contains the fixes | plugin | **CLOSED** | [#1](https://github.com/HarryHeYu/dsh-sessionflow/issues/1) closed with the shipped version named explicitly (Core `v1.3.1`), not just a commit. |
-| Release/documentation consistency | both | done for core, done for plugin README | `scripts/check_consistency.py --strict` in core CI. |
+| Current pairing — Core `v1.5.0` × Plugin `v1.3.0` | both | **RELEASED** (Core 2026-11-14, plugin 2026-11-15) | Seven tools, additive Core `evidence_verify` op, bridge schema 1; no second verification implementation in the plugin. |
+| Release/documentation consistency | both | **DONE** for maintained docs | Core CI runs `scripts/check_consistency.py --strict`; the plugin pins the current pairing, seven-tool wording and false-blocker wording in offline tests. |
 | Real-core bridge regression in CI | plugin | **not covered** | CI uses stubs only. A job that installs a pinned core and runs the integration subset is missing. |
 
 ## Milestone B — Provider & provenance
@@ -38,9 +39,10 @@ came from.
 
 | Item | Where | State |
 |---|---|---|
-| OpenCode adapter (read-only SQLite, v2 + legacy schema) | core | **implemented, UNIT_TESTED**, on a branch; no real install observed |
-| Clarify DSH audit state (`NOT_FOUND_IN_CURRENT_AUDIT` vs `installed`) | core | open — display/summary only, the detection itself is correct |
-| DSH provenance classifier | core | open — must use structural fields only; `UNKNOWN` when there is no evidence |
+| OpenCode adapter (read-only SQLite, v2 + legacy schema) | core | **MERGED**, `UNIT_VERIFIED`; only v2.0.29 on Windows gated; no real v2.2.x observed |
+| WorkBuddy adapter (read-only JSONL) | core | **MERGED** to main `04e04ff`, `UNIT_VERIFIED`; tenth provider; no native resume, startup hook or transcript writer |
+| Clarify DSH audit state (`NOT_FOUND_IN_CURRENT_AUDIT` vs `installed`) | core | open (Core #14) — display/summary only, the detection itself is correct |
+| DSH provenance classifier | core | open (Core #13) — must use structural fields only; `UNKNOWN` when there is no evidence |
 | Capability matrix validation (declaration vs adapter denial) | core | partly done; `tests/test_capability_consistency.py` pins the ZCode case |
 
 ## Milestone C — Trustworthy continuation
@@ -50,8 +52,8 @@ something observed.
 
 | Item | Where | State |
 |---|---|---|
-| `sessionflow_evidence_verify` tool (expose core's five-state verify) | plugin | **not implemented**; design decided in [#9](https://github.com/HarryHeYu/dsh-sessionflow/issues/9) (Option A) — Core [#22](https://github.com/HarryHeYu/sessionFlow/issues/22) first |
-| Evidence claim vs observation (a `MATCH` proves a reference, not a fact) | both | design only |
+| `sessionflow_evidence_verify` tool (expose core's five-state verify) | plugin | **RELEASED in v1.3.0** against Core v1.5.0; Core #22 and Plugin #9 closed; additive `evidence_verify` op via `callOp()`, bridge schema still 1 |
+| Evidence claim vs observation (a `MATCH` proves a reference, not a fact) | both | documented in Core v1.5.0 and plugin v1.3.0; no truth judgement added |
 | Native resume live verification (one provider, isolated session, sentinel) | core | `NOT_VERIFIED` — needs credentials and a real agent run |
 | Repeatable tool-selection evaluation | plugin | ad-hoc experiments only; no repeatable suite |
 
@@ -106,13 +108,10 @@ database schema, the continuity engine, or the bridge protocol.
   share alongside the accuracy, not instead of it.
 - **Level**: `UNIT_TESTED`. Difficulty: medium.
 
-### C1. Plugin: `sessionflow_evidence_verify`
-- **Problem**: the core can verify an evidence reference; an agent cannot ask it.
-- **Design decided (2026-11-12)**: [#9](https://github.com/HarryHeYu/dsh-sessionflow/issues/9) — **Option A**: Core adds an additive `evidence_verify` op ([Core #22](https://github.com/HarryHeYu/sessionFlow/issues/22)), the plugin calls it through the existing `callOp()`. `schema_version` stays 1. No second CLI/exit-code path in the plugin.
-- **Scope**: one thin tool calling the Core op. Five-state semantics, verification logic and CLI behaviour stay in Core; nothing is re-implemented here. An older Core without the op reports "not supported" (`unknown op`), never `NOT_FOUND` or `MATCH`.
-- **Acceptance**: `MATCH` is described as "this reference matches", never as "the claim is true"; all five states reachable and tested (no digest → `UNVERIFIABLE`, malformed reference → `INVALID_REFERENCE`, unknown session → `NOT_FOUND`).
-- **Order**: Core #22 lands and becomes installable first; the plugin PR is blocked until then. Contract tests may be drafted in parallel.
-- **Level**: `UNIT_TESTED` + `INTEGRATION_TESTED`. Difficulty: medium. Open for @SunnyRad.
+### C1. Plugin: `sessionflow_evidence_verify` — delivered, kept for provenance
+- **Delivered**: Core v1.5.0 added the additive `evidence_verify` op; plugin v1.3.0 exposes the seventh tool through `callOp()`. Core #22 and Plugin #9 are closed.
+- **Boundary that still holds**: five-state semantics and verification logic stay in Core; `schema_version` is still 1; an older Core without the op reports `unknown op`, never `NOT_FOUND` or `MATCH`.
+- **Trust wording**: `MATCH` means "this reference matches", never "the claim is true".
 
 ### C2. Plugin: tool-selection evaluation that can be repeated
 - **Problem**: whether an agent *reaches for* these tools has only been observed
@@ -133,7 +132,7 @@ database schema, the continuity engine, or the bridge protocol.
 
 ---
 
-## Next-stage execution order (updated 2026-11-12)
+## Next-stage execution order (updated 2026-11-16)
 
 The release items in P0 are all resolved. Do not let any one of them block
 other work, but do not open several cross-repo protocol changes at once
@@ -150,25 +149,28 @@ consumer is accepted.
    are shipped; full tests, artifact SHA-256, upgrade path and Plugin `v1.2.0`
    pairing verified. Issue #1 and #6 are closed (see Milestone A).
 
-**P1 — in progress, none of it claimed as done (gate closed)**
-- Core: OpenCode Adapter Phase 3 (real SQLite schema, incremental scan, WAL and
-  error recovery, tool-call mapping; synthetic tests stay labelled synthetic).
-- Core: Provider Capability Matrix, DSH provenance classifier.
-- Plugin: Bridge/Tool contract maintenance and real-core contract tests.
-- Plugin: `sessionflow_evidence_verify` — design decided in [#9](https://github.com/HarryHeYu/dsh-sessionflow/issues/9)
-  (Option A, additive Core op via `callOp()`); blocked on [Core #22](https://github.com/HarryHeYu/sessionFlow/issues/22).
-  Never re-implement verification here; a `MATCH` proves a reference, not a fact.
+**P1 — current reliability work (Core main `04e04ff`)**
+- Core: OpenCode and WorkBuddy adapters are **MERGED / UNIT_VERIFIED**; no v2.2.x
+  or native-resume `LIVE_VERIFIED` claim is made.
+- Core: DSH audit-state naming (Core #14) and provenance classifier (Core #13)
+  are the next reliability items.
+- Plugin: bridge/tool contract maintenance and real-core contract tests remain
+  open; the current seven-tool contract is released in v1.3.0.
+- Plugin: `sessionflow_evidence_verify` is **RELEASED** in v1.3.0; Core #22 and
+  Plugin #9 are closed. Never re-implement verification here; a `MATCH` proves a
+  reference, not a fact.
 
 **P2**
 - Native Resume live verification (keep `NOT_VERIFIED` until observed), VSIX,
   macOS CI, DSH canary, and the Windows CI jobs (A2 / D2).
 
 Claimable work is listed above and in the two repos' Issues. `help wanted` does
-not imply a deadline. The evidence-verify pair is
-[#9](https://github.com/HarryHeYu/dsh-sessionflow/issues/9) +
-[Core #22](https://github.com/HarryHeYu/sessionFlow/issues/22); the two still-open
-DSH findings are [#2](https://github.com/HarryHeYu/dsh-sessionflow/issues/2).
-Core performance debt is [Core #12](https://github.com/HarryHeYu/sessionFlow/issues/12) — still open.
+not imply a deadline. The evidence-verify pair is closed:
+[Core #22](https://github.com/HarryHeYu/sessionFlow/issues/22) +
+[Plugin #9](https://github.com/HarryHeYu/dsh-sessionflow/issues/9). Plugin
+[#2](https://github.com/HarryHeYu/dsh-sessionflow/issues/2) remains a pointer;
+the technical work is tracked as Core #13 / #14. Core performance debt is
+[Core #12](https://github.com/HarryHeYu/sessionFlow/issues/12) — still open.
 
 ---
 
