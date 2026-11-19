@@ -3,6 +3,12 @@
 Notable changes to `dsh-sessionflow`, newest first.  The full write-up for each
 release is in `docs/release-<version>.md`.
 
+## [Unreleased]
+
+### Fixed
+- **Discovery probe misclassified a found-but-invalid core as `VOYAGER_NOT_FOUND`.** A core that started but answered the version probe with non-JSON (or JSON without `schema_version`) made the resolver tell users to reinstall a core they already had. Probe failures now carry a typed bridge error code and a `found` flag; found-but-unusable answers become `INCOMPATIBLE` with the real cause (BAD_JSON / missing schema) in the diagnostic, and all per-candidate codes survive in the detail for both terminal branches. No new error code was added; the existing `VoyagerError` union is unchanged.
+- **`callOp()` accepted a syntactically valid JSON answer after a non-zero exit.** The core reports op-level errors in the JSON `error` field and always exits 0 (`cmd_api` returns 0), so a JSON answer paired with a non-zero exit can only mean a broken wrapper or a dying process. It is now rejected as `CLI_FAILED` before the payload is parsed, leaving the five-state `evidence_verify` result untouched on all normal paths.
+
 ## [1.3.0] — 2026-11-15
 
 第七个 tool：`sessionflow_evidence_verify`。发布说明：

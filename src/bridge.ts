@@ -187,7 +187,8 @@ function run(cmd: VoyagerCommand, args: string[], opts: BridgeOptions,
         stdio: ['pipe', 'pipe', 'pipe'],
       });
     } catch (e) {
-      reject(new VoyagerError('VOYAGER_NOT_FOUND',
+      const enoent = (e as NodeJS.ErrnoException)?.code === 'ENOENT';
+      reject(new VoyagerError(enoent ? 'VOYAGER_NOT_FOUND' : 'CLI_FAILED',
         `could not start '${cmd.command}': ${String(e)}`));
       return;
     }
@@ -240,6 +241,8 @@ export interface ProbeFailure {
   ok: false;
   reason: string;
   found: boolean;
+  /** The bridge error code behind this rejection; optional for older callers. */
+  code?: VoyagerErrorCode;
 }
 
 export type ProbeResult = { ok: true } | ProbeFailure;
@@ -251,40 +254,65 @@ export type ProbeResult = { ok: true } | ProbeFailure;
  */
 async function probe(cmd: VoyagerCommand, opts: BridgeOptions): Promise<ProbeResult> {
   const shown = [cmd.command, ...cmd.prefixArgs].join(' ');
+  let result: RunResult;
   try {
-    const { stdout, stderr, code } = await run(cmd, ['integration-info', '--json'],
+    result = await run(cmd, ['integration-info', '--json'],
       { ...opts, timeoutMs: Math.max(opts.timeoutMs ?? PROBE_TIMEOUT_MS, PROBE_TIMEOUT_MS) });
-    if (code !== 0) {
-      const why = (stderr.trim().split(/\r?\n/).find((l) => l.trim().length > 0) ?? '').slice(0, 200);
-      return {
-        ok: false, found: false,
-        reason: `\`${shown} integration-info\` exited ${code}${why ? `: ${why}` : ''}`,
-      };
-    }
-    const info = JSON.parse(stdout.trim()) as IntegrationInfo;
-    // A core that answers but is too old must NOT be selected: caching it would
-    // pin the whole process to a binary every tool then rejects.
-    if (typeof info.schema_version !== 'number') {
-      return {
-        ok: false, found: true,
-        reason: `\`${shown}\` answered without a schema_version`,
-      };
-    }
-    if (info.schema_version < REQUIRED_SCHEMA_VERSION) {
-      return {
-        ok: false, found: true,
-        reason: `\`${shown}\` reports bridge schema ${info.schema_version}, ` +
-                `but this plugin needs ${REQUIRED_SCHEMA_VERSION}`,
-      };
-    }
-    return { ok: true };
   } catch (e) {
+    // V04: a missing executable, a failed spawn and a timeout are different
+    // diagnoses. Never flatten them into one "could not be started or timed
+    // out" string; run() has already classified the cause.
+    const code: VoyagerErrorCode = e instanceof VoyagerError ? e.code : 'CLI_FAILED';
+    const message = e instanceof Error ? e.message : String(e);
     return {
-      ok: false, found: false,
-      reason: `\`${shown}\` could not be started or timed out: ` +
-              `${e instanceof Error ? e.message : String(e)}`,
+      ok: false, found: false, code,
+      reason: `[${code}] \`${shown}\` could not be used: ${message}`,
     };
   }
+  const { stdout, stderr, code } = result;
+  if (code !== 0) {
+    const why = (stderr.trim().split(/\r?\n/).find((l) => l.trim().length > 0) ?? '').slice(0, 200);
+    return {
+      ok: false, found: false, code: 'CLI_FAILED',
+      reason: `[CLI_FAILED] \`${shown} integration-info\` exited ${code}${why ? `: ${why}` : ''}`,
+    };
+  }
+
+  let info: IntegrationInfo;
+  try {
+    info = JSON.parse(stdout.trim()) as IntegrationInfo;
+  } catch {
+    const excerpt = stdout.trim().slice(0, 200) || '(empty)';
+    // The program was found and exited 0. This is a protocol/configuration
+    // failure, so found=true: the old catch reported VOYAGER_NOT_FOUND and
+    // told a user with a working core to install it again.
+    return {
+      ok: false, found: true, code: 'BAD_JSON',
+      reason: `[BAD_JSON] \`${shown}\` answered non-JSON: ${excerpt}`,
+    };
+  }
+  if (!info || typeof info !== 'object') {
+    return {
+      ok: false, found: true, code: 'BAD_JSON',
+      reason: `[BAD_JSON] \`${shown}\` answered JSON that is not an object`,
+    };
+  }
+  // A core that answers but is too old must NOT be selected: caching it would
+  // pin the whole process to a binary every tool then rejects.
+  if (typeof info.schema_version !== 'number') {
+    return {
+      ok: false, found: true, code: 'INCOMPATIBLE',
+      reason: `[INCOMPATIBLE] \`${shown}\` answered without a schema_version`,
+    };
+  }
+  if (info.schema_version < REQUIRED_SCHEMA_VERSION) {
+    return {
+      ok: false, found: true, code: 'INCOMPATIBLE',
+      reason: `[INCOMPATIBLE] \`${shown}\` reports bridge schema ${info.schema_version}, ` +
+              `but this plugin needs ${REQUIRED_SCHEMA_VERSION}`,
+    };
+  }
+  return { ok: true };
 }
 
 /** The operator explicitly named a core (plugin config, else `$VOYAGER_BIN`). */
@@ -390,10 +418,21 @@ async function resolveVoyagerUncached(opts: BridgeOptions,
  * untested except through a real install.
  */
 export function unresolvableCoreError(failures: ProbeFailure[]): VoyagerError {
+  // Keep every candidate's classification visible in BOTH terminal branches.
+  // An operator with a broken-but-present core gets INCOMPATIBLE; one with no
+  // core gets VOYAGER_NOT_FOUND.  Either way the diagnostic must still show
+  // which candidate timed out, which failed to spawn, which answered bad JSON
+  // -- flattening them into one sentence sends people to the wrong fix.
+  const tried = failures.map((f) => {
+    if (!f.code) return f.reason;
+    const tag = `[${f.code}]`;
+    return f.reason.startsWith(tag) ? f.reason : `${tag} ${f.reason}`;
+  }).join('; ');
   const present = failures.find((f) => f.found);
   if (present) {
     return new VoyagerError('INCOMPATIBLE',
       `a sessionFlow/Voyager core was found but this plugin cannot use it: ${present.reason}`,
+      `What was tried: ${tried}\n\n` +
       `This plugin needs bridge schema ${REQUIRED_SCHEMA_VERSION} or newer. ` +
       `Update the core to a compatible commit and reinstall:\n` +
       `    python -m pip install --upgrade "voyager[all] @ ` +
@@ -410,7 +449,7 @@ export function unresolvableCoreError(failures: ProbeFailure[]): VoyagerError {
   return new VoyagerError('VOYAGER_NOT_FOUND',
     'sessionFlow/Voyager is not reachable from this DSH process. Either it is ' +
     'not installed, or it is installed where this process cannot see it.',
-    `What was tried: ${failures.map((f) => f.reason).join('; ')}\n\n` +
+    `What was tried: ${tried}\n\n` +
     `If you installed it into a virtualenv and that venv is not active here, ` +
     `the console script is in <venv>/Scripts (Windows) or <venv>/bin (POSIX), ` +
     `which is not on this process's PATH. Point at it directly:\n` +
@@ -428,8 +467,18 @@ export function unresolvableCoreError(failures: ProbeFailure[]): VoyagerError {
 export async function callOp<T>(op: string, params: Record<string, unknown>,
                                 opts: BridgeOptions = {}): Promise<T> {
   const cmd = await resolveVoyager(opts);
-  const { stdout, stderr } = await run(cmd, ['api'], opts,
+  const { stdout, stderr, code } = await run(cmd, ['api'], opts,
     JSON.stringify({ id: 1, op, params }) + '\n');
+  // V05: the core reports an op-level error in the JSON `error` field and
+  // still exits 0 (cmd_api always returns 0). A non-zero exit alongside a
+  // syntactically valid answer can only come from a broken wrapper or a
+  // dying process; accepting it would hide the failure from the caller.
+  // Check before parsing so the exit code is not lost in a BAD_JSON path.
+  if (code !== 0) {
+    throw new VoyagerError('CLI_FAILED',
+      `\`voyager api ${op}\` failed with exit code ${code}`,
+      stderr.slice(0, 400));
+  }
   const line = stdout.split(/\r?\n/).find((l) => l.trim().length > 0);
   if (line === undefined) {
     throw new VoyagerError('NO_OUTPUT',

@@ -156,6 +156,7 @@ import {
   resetBridgeCache,
   resolveVoyager,
   runJson,
+  unresolvableCoreError,
   type BridgeOptions,
 } from '../lib/bridge.js';
 
@@ -345,6 +346,60 @@ test('non-JSON output becomes a BAD_JSON error, not a parse crash', async () => 
   );
 });
 
+test('a configured core that answers non-JSON is not reported as missing', async () => {
+  // V04: the program ran and exited 0, so "install the core" is the wrong
+  // advice. The failure must carry BAD_JSON and found=true semantics.
+  resetBridgeCache();
+  await withoutVoyagerEnv(() => assert.rejects(
+    () => resolveVoyager(stub('stub-probe-nonjson.mjs')),
+    (e: unknown) =>
+      e instanceof VoyagerError &&
+      e.code === 'INCOMPATIBLE' &&
+      /BAD_JSON/.test(shown(e)) &&
+      /non-JSON/.test(shown(e)),
+  ));
+});
+
+test('a probe JSON without schema_version names the protocol gap', async () => {
+  resetBridgeCache();
+  await withoutVoyagerEnv(() => assert.rejects(
+    () => resolveVoyager(stub('stub-probe-noschema.mjs')),
+    (e: unknown) =>
+      e instanceof VoyagerError &&
+      e.code === 'INCOMPATIBLE' &&
+      /schema_version/.test(shown(e)),
+  ));
+});
+
+test('discovery failures keep timeout and spawn/exit causes distinguishable', () => {
+  const e = unresolvableCoreError([
+    { ok: false, found: false, code: 'VOYAGER_NOT_FOUND', reason: 'not on PATH' },
+    { ok: false, found: false, code: 'TIMEOUT', reason: 'timed out' },
+    { ok: false, found: false, code: 'CLI_FAILED', reason: 'could not start' },
+    { ok: false, found: true, code: 'BAD_JSON', reason: 'answered non-JSON' },
+  ]);
+  // One found=true answer is enough: a core exists but cannot be used.
+  assert.equal(e.code, 'INCOMPATIBLE');
+  for (const tag of ['VOYAGER_NOT_FOUND', 'TIMEOUT', 'CLI_FAILED', 'BAD_JSON']) {
+    assert.match(e.detail ?? '', new RegExp(tag),
+      `${tag} was flattened out of the diagnostic detail`);
+  }
+});
+
+test('a valid api answer followed by a non-zero exit is rejected', async () => {
+  // V05: the real `voyager api` exits 0 on normal and op-error paths; a
+  // non-zero exit after a JSON answer can only come from a broken wrapper or
+  // a dying process, so accepting the answer would hide the failure.
+  resetBridgeCache();
+  await assert.rejects(
+    () => callOp('integration_info', {}, stub('stub-api-exit3.mjs')),
+    (e: unknown) =>
+      e instanceof VoyagerError &&
+      e.code === 'CLI_FAILED' &&
+      /exit code 3/.test(e.message),
+  );
+});
+
 test('a hanging op hits the deadline and becomes TIMEOUT', async () => {
   resetBridgeCache();
   await assert.rejects(
@@ -353,7 +408,8 @@ test('a hanging op hits the deadline and becomes TIMEOUT', async () => {
   );
 });
 
-test('a slow but working core is still discovered, whatever the per-call deadline', async () => {  // Discovery has its own budget: the probe spawns an interpreter and imports
+test('a slow but working core is still discovered, whatever the per-call deadline', async () => {
+  // Discovery has its own budget: the probe spawns an interpreter and imports
   // a package, which costs far more than a call on an already-resolved command.
   // Here the core answers in 2.5 s and the caller's per-call deadline is 400 ms.
   // If the probe shared that deadline, discovery would fail and the user would
