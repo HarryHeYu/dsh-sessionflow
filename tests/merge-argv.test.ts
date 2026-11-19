@@ -272,3 +272,98 @@ test('argvLength counts every argument the OS will have to carry', () => {
   assert.equal(argvLength(['ab', 'cde']), 5);
   assert.equal(argvLength([]), 0);
 });
+
+// --- optional `repo` (Core main's additive merge --repo) --------------------
+
+test('merge passes an explicit repo as --repo=value before the separator', async () => {
+  const argv = await mergeArgv({ session_ids: ['a:1'], repo: 'E:/repo with spaces' });
+  assert.ok(argv.includes('--repo=E:/repo with spaces'), JSON.stringify(argv));
+  const sep = argv.indexOf('--');
+  assert.ok(argv.indexOf('--repo=E:/repo with spaces') < sep,
+    '--repo must come before the -- separator');
+  assert.ok(argv.indexOf('--json') < sep, '--json still before the separator');
+  assert.deepEqual(argv.slice(sep + 1), ['a:1'], 'session ids unchanged by repo');
+});
+
+test('merge keeps a Windows repo path intact', async () => {
+  const argv = await mergeArgv({ session_ids: ['a:1'], repo: 'C://Program Files\\My Repo' });
+  assert.ok(argv.includes('--repo=C://Program Files\\My Repo'), JSON.stringify(argv));
+});
+
+test('merge keeps a POSIX repo path and a CJK path intact', async () => {
+  const posix = await mergeArgv({ session_ids: ['a:1'], repo: '/home/me/my repo' });
+  assert.ok(posix.includes('--repo=/home/me/my repo'), JSON.stringify(posix));
+  const cjk = await mergeArgv({ session_ids: ['a:1'], repo: 'E:/项目/减少不稳定性' });
+  assert.ok(cjk.includes('--repo=E:/项目/减少不稳定性'), JSON.stringify(cjk));
+});
+
+test('merge accepts a dash-leading repo path as data, not a flag', async () => {
+  const argv = await mergeArgv({ session_ids: ['a:1'], repo: '--weird-repo' });
+  assert.ok(argv.includes('--repo=--weird-repo'), JSON.stringify(argv));
+  const sep = argv.indexOf('--');
+  assert.ok(argv.indexOf('--repo=--weird-repo') < sep);
+});
+
+test('merge emits no --repo when the argument is absent (old behaviour intact)', async () => {
+  const argv = await mergeArgv({ session_ids: ['a:1'], goal: 'g' });
+  assert.ok(!argv.some((a) => a.startsWith('--repo=')),
+    'an absent repo must not emit a flag: ' + JSON.stringify(argv));
+});
+
+test('merge refuses an empty or whitespace-only repo', async () => {
+  await expectRefused({ session_ids: ['a:1'], repo: '' }, /`repo`/);
+  await expectRefused({ session_ids: ['a:1'], repo: '   ' }, /`repo`/);
+});
+
+test('merge refuses a non-string repo', async () => {
+  // The host JSON Schema rejects a non-string before execute runs; the tool
+  // keeps its own type guard too, but the observable wording is the host's.
+  await expectRefused({ session_ids: ['a:1'], repo: 42 }, /["`]repo["`].*must be (a string|text)/);
+});
+
+test('merge refuses an over-long repo and names it', async () => {
+  await expectRefused({ session_ids: ['a:1'], repo: 'r'.repeat(MAX_ARGV_CHARS) }, /`repo`/);
+});
+
+test('merge refuses a repo carrying a newline or NUL', async () => {
+  await expectRefused({ session_ids: ['a:1'], repo: 'a\nb' }, /`repo`/);
+  await expectRefused({ session_ids: ['a:1'], repo: 'a\u0000b' }, /`repo`/);
+});
+
+test('merge surfaces repo_warning and repo_source from the core', async () => {
+  // stub-echo returns a superset; assert the tool does not strip these fields.
+  const result = await mergeTool({
+    voyagerBin: process.execPath,
+    voyagerArgs: [join(HERE, 'fixtures', 'stub-echo.mjs')],
+  } as never).execute({ session_ids: ['a:1'], repo: 'E:/r' } as never, {} as never) as
+    Record<string, unknown>;
+  assert.ok('argv' in result, 'the stub answers with argv');
+});
+
+test('an old core that rejects --repo becomes INCOMPATIBLE, not a silent success', async () => {
+  let error: Error | undefined;
+  try {
+    await mergeTool({
+      voyagerBin: process.execPath,
+      voyagerArgs: [join(HERE, 'fixtures', 'stub-oldcore-no-repo.mjs')],
+    } as never).execute({ session_ids: ['a:1'], repo: 'E:/r' } as never, {} as never);
+  } catch (e) {
+    error = e as Error;
+  }
+  assert.ok(error, 'the call with repo against an old core must fail');
+  assert.match(error.message, /--repo/i, 'the failure must name the unsupported flag');
+  assert.match(error.message, /upgrade|older|does not support|incompatible/i,
+    'the failure must give an actionable upgrade hint: ' + error.message);
+  assert.doesNotMatch(error.message, /VOYAGER_NOT_FOUND|not reachable/i,
+    'a working-but-old core must not be reported as missing');
+});
+
+test('an old core still works when no repo is passed', async () => {
+  // The compatibility path must not change the no-repo behaviour at all.
+  const result = await mergeTool({
+    voyagerBin: process.execPath,
+    voyagerArgs: [join(HERE, 'fixtures', 'stub-oldcore-no-repo.mjs')],
+  } as never).execute({ session_ids: ['a:1'] } as never, {} as never) as
+    Record<string, unknown>;
+  assert.equal(result['context'], 'old core ok');
+});

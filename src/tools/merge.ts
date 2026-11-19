@@ -1,5 +1,5 @@
 import { defineTool } from '@deepseek-ai/dsh-tools';
-import { runJson, type BridgeOptions } from '../bridge.js';
+import { runJson, VoyagerError, type BridgeOptions } from '../bridge.js';
 import {
   MAX_ARG_CHARS, assertArgvFits, flagArg, guarded, jsonOutput, ParameterError,
 } from './common.js';
@@ -15,6 +15,10 @@ interface MergeResult {
   warnings: string[];
   error: string | null;
   bundle_path: string | null;
+  // Core main's additive `merge --repo` echoes these. Older cores omit them;
+  // the fields are optional so no consumer shape changes.
+  repo_root?: string | null;
+  repo_source?: string | null;
 }
 
 export function mergeTool(bridge: BridgeOptions) {
@@ -36,6 +40,13 @@ export function mergeTool(bridge: BridgeOptions) {
       goal: { type: 'string', description: 'Primary goal for the next agent.' },
       thread_title: { type: 'string', description: 'Title for the WorkThread.' },
       budget: { type: 'string', description: 'compact | balanced | full | auto | 12k | <int>.' },
+      repo: {
+        type: 'string',
+        description: 'Explicit repository root for a NEW WorkThread. Ignored with ' +
+          'a warning by the core when reusing an existing thread. Requires a core ' +
+          'newer than v1.5.0; if the core does not support it, the call fails with ' +
+          'an upgrade hint rather than silently dropping this value.',
+      },
     },
     output: jsonOutput(),
     async execute(args) {
@@ -102,6 +113,19 @@ export function mergeTool(bridge: BridgeOptions) {
         options.push(flagArg('budget', args.budget, { maxLength: MAX_ARG_CHARS }));
         contributions.push(['budget', args.budget.length]);
       }
+      if (args.repo !== undefined) {
+        // A repo is a path: empty / whitespace-only is never a valid root.
+        // flagArg handles type, length, newline and NUL; the blank check here
+        // stops an empty root that argparse would accept as `--repo=`.
+        if (typeof args.repo !== 'string') {
+          throw new ParameterError('`repo` must be text.');
+        }
+        if (args.repo.trim().length === 0) {
+          throw new ParameterError('`repo` is blank; a repository root must name a path.');
+        }
+        options.push(flagArg('repo', args.repo, { maxLength: MAX_ARG_CHARS }));
+        contributions.push(['repo', args.repo.length]);
+      }
 
       // Order matters and is load-bearing: `--json` goes BEFORE the separator.
       // After it, argparse stops option parsing and reads the flag as just
@@ -111,9 +135,30 @@ export function mergeTool(bridge: BridgeOptions) {
       ];
       assertArgvFits(argv, contributions);
 
+      const wantsRepo = args.repo !== undefined;
       return await guarded(async () => {
         // `--json` is already in place, so the bridge must not append another.
-        return await runJson<MergeResult>(argv, bridge, { jsonAlreadySet: true });
+        try {
+          return await runJson<MergeResult>(argv, bridge, { jsonAlreadySet: true });
+        } catch (e) {
+          // Core v1.5.0 (Plugin v1.3.0's compatibility baseline) predates
+          // `merge --repo`. Its argparse rejects the unknown flag with exit 2
+          // and "unrecognized arguments: --repo=..." on stderr — no write
+          // happens. Turn that into an actionable incompatibility, never into
+          // "core not found" and never by dropping `repo` and retrying.
+          if (wantsRepo && e instanceof VoyagerError && e.code === 'CLI_FAILED' &&
+              /unrecognized arguments/i.test(e.detail ?? '') &&
+              /--repo/.test(e.detail ?? '')) {
+            throw new VoyagerError(
+              'INCOMPATIBLE',
+              'the configured sessionFlow core does not support `merge --repo`. ' +
+              'That flag was added after Core v1.5.0; this call was NOT merged.',
+              'Upgrade the core to a version that exposes `merge --repo`, or omit ' +
+              'the `repo` argument. The core answered the version probe, so it is ' +
+              'installed — only this flag is too new for it.');
+          }
+          throw e;
+        }
       });
     },
   });
