@@ -150,6 +150,7 @@ after(() => {
 
 import {
   VoyagerError,
+  CORE_INSTALL_HINT,
   assertCompatible,
   callOp as callOpRaw,
   integrationInfo,
@@ -907,4 +908,17 @@ test('current_work stays quiet when a repo has exactly one thread', integrationT
     'current_work', { repo: 'E:/proj/p93', db: seededTwo });
   assert.equal(r.thread_ambiguous, undefined);
   assert.equal(r.thread_candidates, undefined);
+});
+
+test('the install hint pins the released core that has the seventh op', () => {
+  // readme-consistency.test.ts already requires both READMEs to pin v1.5.0:
+  // the seventh tool (evidence_verify) only exists from that release.  A user
+  // who hits "core not found" sees CORE_INSTALL_HINT, not the README, so it
+  // must pin the same tag.  Pointing at the older compatibility baseline
+  // (a bare commit) installed a core with nine ops and broke that tool.
+  const pins = [...CORE_INSTALL_HINT.matchAll(/sessionFlow\.git@([^\s"]+)/g)]
+    .map((m) => m[1]);
+  assert.ok(pins.length > 0, 'the install hint must contain a copyable install command');
+  assert.deepEqual(pins, ['v1.5.0'],
+    'the install hint must pin the same v1.5.0 tag the READMEs do, not a raw commit');
 });

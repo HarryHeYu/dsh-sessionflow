@@ -23,23 +23,34 @@ export const REQUIRED_SCHEMA_VERSION = 1;
 /**
  * The sessionFlow core this plugin's release was verified against, as a git ref.
  *
- * The core has no releases and its distribution is not on PyPI (the `voyager`
- * name there belongs to an unrelated library), so there is no version string to
- * pin against -- a commit is the only stable, reproducible identifier.  Bumping
- * this is the compatibility contract: it is what `voyager[all] @ git+<url>@<ref>`
- * resolves to in the install command shown to users.
+ * The core is not on PyPI (the `voyager` name there belongs to an unrelated
+ * library), but it does publish git tags such as `v1.5.0`.  This commit is the
+ * *oldest* core the bridge can drive: it is the compatibility floor behind
+ * `assertCompatible`'s schema check, not the install target.  See
+ * {@link RELEASED_CORE_TAG} for the tag users should actually install.
  */
 export const REQUIRED_CORE_REF = 'f2a6445';
 
 /**
+ * The released core tag to put in the copyable install command.  This is
+ * deliberately the release, not {@link REQUIRED_CORE_REF}: that commit is the
+ * *oldest* core the bridge can drive (the compatibility baseline asserted by
+ * `assertCompatible`), while the seventh tool (`evidence_verify`) only exists
+ * from v1.5.0.  Telling a user with no core to install the baseline would give
+ * them a nine-op core and a silently broken seventh tool.  Both READMEs and
+ * `tests/readme-consistency.test.ts` pin this same tag; keep them in step.
+ */
+export const RELEASED_CORE_TAG = 'v1.5.0';
+
+/**
  * The one-line install for a user who does not have the core.  Non-editable and
- * ref-pinned on purpose: `pip install -e .` after a `git clone` is a developer
+ * tag-pinned on purpose: `pip install -e .` after a `git clone` is a developer
  * path, and it is also what makes the install unreproducible.
  */
 export const CORE_INSTALL_HINT =
   `Install it with the version this plugin was tested against:\n` +
   `    python -m pip install "voyager[all] @ ` +
-  `git+https://github.com/HarryHeYu/sessionFlow.git@${REQUIRED_CORE_REF}"\n` +
+  `git+https://github.com/HarryHeYu/sessionFlow.git@${RELEASED_CORE_TAG}"\n` +
   `Then run \`voyager scan\` to build the index. (The distribution is still ` +
   `named \`voyager\`, so a bare \`pip install voyager\` would install an ` +
   `unrelated library -- always keep the \`@ git+…\` part.)`;
