@@ -1,7 +1,7 @@
 # Release v1.4.0 — explicit repository and clearer bridge diagnostics
 
-This is the next **stable** plugin release prepared from `main`. It is not
-tagged and not published in this sprint.
+This is candidate release notes for the tree at commit `65b7363`. It is **not tagged,
+not published and not installable from a `v1.4.0` tag**.
 
 ## Added
 
