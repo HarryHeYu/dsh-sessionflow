@@ -3,7 +3,7 @@
 Notable changes to `dsh-sessionflow`, newest first.  The full write-up for each
 release is in `docs/release-<version>.md`.
 
-## [Unreleased]
+## [1.4.0] — 2026-11-21
 
 ### Added
 - **`sessionflow_merge` accepts an optional `repo`**, forwarded to Core's additive `merge --repo` as `--repo=<value>` (before the `--` separator). It names `repo_root` only for a NEW WorkThread; the core ignores it with a warning when reusing an existing thread. When the argument is absent, the emitted argv is byte-for-byte the old behaviour. A core too old for the flag (argparse `unrecognized arguments: --repo=...`, exit 2, zero writes) yields an actionable `INCOMPATIBLE` upgrade hint — the call is NOT merged and `repo` is never silently dropped. `MergeResult` gains optional `repo_root`/`repo_source` (no consumer shape change); Store/Bridge schema untouched. Tests cover spaces, Windows/POSIX/CJK paths, dash-leading values, empty/blank/non-string/over-long/NUL repo, old-core rejection and no-repo compatibility.
