@@ -104,3 +104,15 @@ test('install examples pin a version, not a moving branch', () => {
   // install examples must pin it, not an older tag or a moving branch.
   assert.deepEqual([...pins].sort(), ['1.5.0']);
 });
+
+test('the header names the published plugin release, not an untagged candidate', () => {
+  // v1.3.0 is the newest tag and published Release. The 1.4.0 candidate is
+  // verified by commit/artefact, never by an install command or Release link.
+  const published = '1.3.0';
+  assert.equal(currentRelease(en, /\*\*Current release\*\*/), published);
+  assert.equal(currentRelease(zh, /\*\*当前版本\*\*/), published);
+  for (const s of [en, zh]) {
+    assert.ok(!s.includes('releases/tag/v1.4.0'),
+      'an untagged candidate must not be linked as a released tag');
+  }
+});
