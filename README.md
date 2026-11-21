@@ -15,7 +15,7 @@ supported agents using [sessionFlow](https://github.com/HarryHeYu/sessionFlow).
 | **Why use it** | Work started in Codex, Claude Code, Grok or ZCode does not have to stop at the agent boundary — pick it back up inside DSH with the goal, files, commands and open items intact. |
 | **Install** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` — [details](#install). Needs a working model provider **and** the sessionFlow core. |
 | **Try it** | Ask in plain language: *"Continue the work I was doing in Claude Code on this repo."* Full walkthrough: [5-minute Quick Start](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md). |
-| **Current release** | [v1.3.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.3.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 / 0.2.1-rc.5 / 0.2.2-alpha.2 (tool calls answered) · Node ≥ 22.19 · bridge schema 1 |
+| **Current release** | [v1.4.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.4.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 / 0.2.1-rc.5 / 0.2.2-alpha.2 (tool calls answered) · Node ≥ 22.19 · bridge schema 1 |
 | **Privacy** | Local only. No account, no telemetry, no network calls — [boundary](#what-stays-local) |
 | **Known limitation** | Native resume by an agent is **not verified** — see [verification status](#verification-status) |
 
@@ -115,12 +115,14 @@ an older one is refused by name rather than misbehaving silently.
 
 | plugin | core | bridge schema |
 |---|---|---|
+| 1.4.0 (candidate) | `v1.6.0` (candidate) or `v1.5.0` without `repo` | `1` |
 | **1.3.0** | `v1.5.0` | `1` |
 | 1.2.0 | `v1.3.1` | `1` |
 | 1.1.0 | `v1.3.0` | `1` |
 
-**The two repos are versioned independently** — plugin `1.3.0` against core
-`v1.5.0` is the current, correct pairing, and the numbers are not meant to match.
+**The two repos are versioned independently** — plugin `1.4.0` is the prepared
+candidate for Core `1.6.0`; the released pairing remains plugin `1.3.0` with
+Core `v1.5.0`. The numbers are not meant to match.
 Core `v1.5.0` is required for the seventh tool (it adds the `evidence_verify`
 API op); the six older tools keep working on earlier cores. Bridge schema is
 unchanged at `1` — the new op is additive, not a protocol bump.
