@@ -19,7 +19,7 @@ supported agents using [sessionFlow](https://github.com/HarryHeYu/sessionFlow).
 | **Privacy** | Local only. No account, no telemetry, no network calls — [boundary](#what-stays-local) |
 | **Known limitation** | Native resume by an agent is **not verified** — see [verification status](#verification-status) |
 
-> **Unreleased candidate:** Plugin 1.4.0 is prepared at commit `65b7363` (CI 6/6). It has **no tag and no Release**. It pairs with the Core 1.6.0 candidate for the optional `repo` argument; with released Core `v1.5.0`, that argument returns a clear `INCOMPATIBLE`. Verify the candidate from the commit or the built tgz, never from a `v1.4.0` tag.
+> **Unreleased candidate:** Plugin 1.4.0 is prepared on `release/1.4.0-prep-r2`. It has **no tag and no Release**. It pairs with the Core 1.6.0 candidate for the optional `repo` argument; with released Core `v1.5.0`, that argument returns a clear `INCOMPATIBLE`. User-facing install commands stay on `#v1.3.0`; verify this candidate from the branch or the built tgz, never from a `v1.4.0` tag.
 
 Not "yet another session manager" — sessionFlow's continuity layer, exposed to
 DSH as seven tools.

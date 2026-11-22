@@ -1,7 +1,8 @@
 # Release v1.4.0 — explicit repository and clearer bridge diagnostics
 
-This is candidate release notes for the tree at commit `65b7363`. It is **not tagged,
-not published and not installable from a `v1.4.0` tag**.
+This is candidate release notes for the tree on branch `release/1.4.0-prep-r2`. It is
+**not tagged, not published and not installable from a `v1.4.0` tag**. User-facing
+install commands therefore remain pinned to the published `v1.3.0` tag.
 
 ## Added
 

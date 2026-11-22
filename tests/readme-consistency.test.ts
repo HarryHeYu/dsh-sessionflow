@@ -21,6 +21,10 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const en = readFileSync(join(REPO, 'README.md'), 'utf8');
 const zh = readFileSync(join(REPO, 'README.zh-CN.md'), 'utf8');
 const pkg = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8'));
+// The newest published tag/Release, not the version being prepared. On a
+// candidate tree package.json is ahead of this; the pre-tag patch flips
+// both install pins and this constant together with the version bump.
+const PUBLISHED_RELEASE = '1.3.0';
 
 /** Lines are CRLF in EN and LF in ZH; never let that leak into an assertion. */
 function lines(s: string): string[] {
@@ -54,9 +58,16 @@ function currentRelease(s: string, marker: RegExp): string {
   return m[1];
 }
 
-test('both READMEs name the version in package.json', () => {
-  assert.equal(currentRelease(en, /\*\*Current release\*\*/), pkg.version);
-  assert.equal(currentRelease(zh, /\*\*当前版本\*\*/), pkg.version);
+test('both READMEs name the published release, not the candidate version', () => {
+  assert.equal(currentRelease(en, /\*\*Current release\*\*/), PUBLISHED_RELEASE);
+  assert.equal(currentRelease(zh, /\*\*当前版本\*\*/), PUBLISHED_RELEASE);
+  if (pkg.version !== PUBLISHED_RELEASE) {
+    const v = pkg.version.split('.').map(Number);
+    const p = PUBLISHED_RELEASE.split('.').map(Number);
+    assert.ok(
+      v[0] > p[0] || (v[0] === p[0] && (v[1] > p[1] || (v[1] === p[1] && v[2] > p[2]))),
+      'the candidate version must be newer than the published release');
+  }
 });
 
 test('the DSH channel lists in the two headers agree', () => {
@@ -106,14 +117,14 @@ test('install examples pin a version, not a moving branch', () => {
 });
 
 test('the header names the published plugin release, not an untagged candidate', () => {
-  // v1.3.0 is the newest tag and published Release. The 1.4.0 candidate is
-  // verified by commit/artefact, never by an install command or Release link.
-  const published = '1.3.0';
-  assert.equal(currentRelease(en, /\*\*Current release\*\*/), published);
+  const published = currentRelease(en, /\*\*Current release\*\*/);
+  assert.equal(published, PUBLISHED_RELEASE);
   assert.equal(currentRelease(zh, /\*\*当前版本\*\*/), published);
-  for (const s of [en, zh]) {
-    assert.ok(!s.includes('releases/tag/v1.4.0'),
-      'an untagged candidate must not be linked as a released tag');
+  if (pkg.version !== published) {
+    for (const s of [en, zh]) {
+      assert.ok(!s.includes(`releases/tag/v${pkg.version}`),
+        'an untagged candidate must not be linked as a released tag');
+    }
   }
 });
 
@@ -138,6 +149,10 @@ test('plugin install commands pin the published tag or an explicit developer ref
     for (const c of commands) {
       assert.ok(c === `#v${published}` || c === '#main',
         `bare or unknown ref in install command: ${c || '(none)'}`);
+    }
+    if (pkg.version !== published) {
+      assert.ok(!commands.includes(`#v${pkg.version}`),
+        'an untagged candidate must not be offered as an installable tag');
     }
   }
 });
