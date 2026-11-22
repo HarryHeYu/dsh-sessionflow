@@ -116,3 +116,28 @@ test('the header names the published plugin release, not an untagged candidate',
       'an untagged candidate must not be linked as a released tag');
   }
 });
+
+test('plugin install commands pin the published tag or an explicit developer ref', () => {
+  // A bare `github:owner/repo` resolves to main HEAD (verified with pnpm 11.22.0),
+  // which can carry unreleased code behind an old version field. User-facing
+  // install commands must carry an explicit #ref: the published release pin,
+  // or #main inside a clearly-labelled developer row. Verification rows that
+  // record what CI actually ran are excluded (they are evidence, not advice).
+  const published = currentRelease(en, /\*\*Current release\*\*/);
+  for (const s of [en, zh]) {
+    const advice = lines(s).filter(l => !/VERIFIED|已验证/.test(l)).join('\n');
+    const commands = [...advice.matchAll(/dsh plugin[^\n`]*add github:HarryHeYu\/dsh-sessionflow([^\s`]*)/g)]
+      .map(m => m[1]);
+    assert.ok(commands.length >= 4, 'README must contain user-facing plugin install commands');
+    const pins = commands.filter(c => c.startsWith('#v'));
+    assert.ok(pins.length >= 3, 'at least three install commands must pin a version tag');
+    for (const pin of pins) {
+      assert.equal(pin, `#v${published}`,
+        'user-facing plugin install must pin the published release tag');
+    }
+    for (const c of commands) {
+      assert.ok(c === `#v${published}` || c === '#main',
+        `bare or unknown ref in install command: ${c || '(none)'}`);
+    }
+  }
+});
