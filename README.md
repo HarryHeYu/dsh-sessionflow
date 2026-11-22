@@ -13,7 +13,7 @@ supported agents using [sessionFlow](https://github.com/HarryHeYu/sessionFlow).
 |---|---|
 | **What it is** | A thin DSH plugin that exposes the sessionFlow continuity layer as seven `sessionflow_*` tools. |
 | **Why use it** | Work started in Codex, Claude Code, Grok or ZCode does not have to stop at the agent boundary — pick it back up inside DSH with the goal, files, commands and open items intact. |
-| **Install** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` — [details](#install). Needs a working model provider **and** the sessionFlow core. |
+| **Install** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0` — [details](#install). Needs a working model provider **and** the sessionFlow core. |
 | **Try it** | Ask in plain language: *"Continue the work I was doing in Claude Code on this repo."* Full walkthrough: [5-minute Quick Start](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md). |
 | **Current release** | [v1.3.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.3.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 / 0.2.1-rc.5 / 0.2.2-alpha.2 (tool calls answered) · Node ≥ 22.19 · bridge schema 1 |
 | **Privacy** | Local only. No account, no telemetry, no network calls — [boundary](#what-stays-local) |
@@ -160,7 +160,7 @@ is deliberately not on a package registry:
 | | Where it comes from | Install |
 |---|---|---|
 | **Core** — sessionFlow | a **GitHub tag**; not on PyPI | `pipx install "voyager[all] @ git+…@v1.5.0"` |
-| **Plugin** — this repo | **DSH's plugin mechanism**; not on npm | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` |
+| **Plugin** — this repo | **DSH's plugin mechanism**; not on npm | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0` |
 
 Install the core first: without it the seven tools still register, but every call
 fails with a message naming the missing binary.
@@ -173,7 +173,9 @@ Two things people get wrong here:
   runner because it keeps the CLI in its own environment — the tag install is
   what makes a reinstall reproducible.
 - **The plugin is not an npm package.** `dsh plugin add dsh-sessionflow` finds
-  nothing; use the `github:` specifier.
+  nothing; use a `github:` specifier **pinned to the released tag** — a bare
+  `github:HarryHeYu/dsh-sessionflow` resolves to `main` HEAD, which can contain
+  unreleased changes even when its `package.json` still reports the old version.
 
 ### Quick install
 
@@ -190,11 +192,25 @@ No `pipx`? `python -m pip install "voyager[all] @ git+https://github.com/HarryHe
 works too. `python -m pip` is deliberate: on Windows `pip` is often not on `PATH`
 while `python` is.
 
-Then the plugin:
+Then the plugin, pinned to the released tag:
 
 ```sh
-dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow
+dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0
 dsh --profile web
+```
+
+The `#v1.3.0` suffix matters. DSH passes the specifier to pnpm unchanged, and
+pnpm resolves a bare `github:owner/repo` to the repository's **default branch
+HEAD** (`main`), not to the newest tag or Release. Verified with pnpm 11.22.0:
+bare `github:` installed commit `72b9328` (main), while `#v1.3.0` installed the
+released tag's commit `2ad05c8b` and `#<sha>` installed that exact commit. A
+reinstall from the lockfile reproduces the resolved commit; a fresh bare `add`
+floats to whatever `main` currently holds.
+
+To install unreleased `main` deliberately (developers only), say so explicitly:
+
+```sh
+dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#main
 ```
 
 The install is non-editable and pinned, so reinstalling reproduces the same
@@ -451,7 +467,7 @@ Uninstall it and install from the sessionFlow repository instead.
 The plugin is not on npm. Use the GitHub specifier instead:
 
 ```sh
-dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow
+dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0
 ```
 
 **`add` fails with `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`.**

@@ -13,7 +13,7 @@ Codex、Claude Code 等受支持 Agent 中做过的工作。
 |---|---|
 | **是什么** | 一个薄的 DSH 插件，把 sessionFlow 的接续层以七个 `sessionflow_*` tool 暴露出来。 |
 | **为什么用** | 在 Codex / Claude Code / Grok / ZCode 里开始的工作不必停在 Agent 边界——可以在 DSH 里接着做，目标、文件、命令和未完成事项都还在。 |
-| **安装** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` —— [详见](#安装)。需要可用的模型 provider **以及** sessionFlow core。 |
+| **安装** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0` —— [详见](#安装)。需要可用的模型 provider **以及** sessionFlow core。 |
 | **试用** | 直接用自然语言说：*"继续我之前在 Claude Code 里对这个仓库做的工作。"* 完整流程见 [5 分钟上手指南](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md)。 |
 | **当前版本** | [v1.3.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.3.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 / 0.2.1-rc.5 / 0.2.2-alpha.2（工具调用已跑通）· Node ≥ 22.19 · bridge schema 1 |
 | **已知限制** | 由 Agent 发起的 native resume **尚未**验证 —— 见 [验证状态](#验证状态) |
@@ -76,7 +76,7 @@ sessionFlow core 才能回答任何问题。本插件不会引入第三个。
 | | 来自哪里 | 安装 |
 |---|---|---|
 | **核心** — sessionFlow | **GitHub tag**；不在 PyPI | `pipx install "voyager[all] @ git+…@v1.5.0"` |
-| **插件** — 本仓库 | **DSH 的插件机制**；不在 npm | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow` |
+| **插件** — 本仓库 | **DSH 的插件机制**；不在 npm | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0` |
 
 先装核心：没有它，七个工具照样注册，但每次调用都会失败并指名缺的那个二进制。
 
@@ -86,7 +86,8 @@ sessionFlow core 才能回答任何问题。本插件不会引入第三个。
   最近邻搜索库；核心尚未发布到 PyPI，所以下面这条 `@ git+…` 是唯一正确的形式。
   推荐用 `pipx`，它把 CLI 装在独立环境里；而 tag 安装才是可复现的。
 - **插件不是 npm 包。** `dsh plugin add dsh-sessionflow` 找不到任何东西，要用
-  `github:` 形式。
+  `github:` 形式，并**锁定到发布 tag** —— 裸 `github:HarryHeYu/dsh-sessionflow`
+  解析到 `main` HEAD，即使它的 `package.json` 还写着旧版本号，也可能含有未发布的改动。
 
 ```sh
 # 1. 核心（pin 到本插件版本实测过的发布 tag）
@@ -95,9 +96,21 @@ voyager --version     # 应当输出 1.5.0
 voyager scan
 voyager doctor        # 确认核心能跑，并报告 bridge schema 1
 
-# 2. 本插件，直接从 GitHub 装
-dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow
+# 2. 本插件，锁定到发布 tag
+dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0
 dsh --profile web
+```
+
+`#v1.3.0` 后缀很重要：DSH 把 specifier 原样交给 pnpm，而 pnpm 把裸
+`github:owner/repo` 解析到仓库的**默认分支 HEAD**（`main`），不是最新 tag 或
+Release。用 pnpm 11.22.0 实测：裸 `github:` 装到 `72b9328`（main），`#v1.3.0`
+装到发布 tag 的 commit `2ad05c8b`，`#<sha>` 装到指定 commit。从 lockfile 重装可
+复现解析出的 commit；重新裸 `add` 则会漂到 `main` 的当前状态。
+
+要故意安装未发布的 `main`（仅开发用），请显式说明：
+
+```sh
+dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#main
 ```
 
 没有 `pipx`？`python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.5.0"`
@@ -309,10 +322,10 @@ voyager --version
 sessionFlow 仓库装。
 
 **`dsh plugin add dsh-sessionflow` 找不到包。**
-插件不在 npm 上。改用 GitHub 写法：
+插件不在 npm 上。改用 GitHub specifier：
 
 ```sh
-dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow
+dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0
 ```
 
 **`add` 报 `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`。**
