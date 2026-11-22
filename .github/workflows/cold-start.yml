@@ -220,3 +220,88 @@ jobs:
       - name: Pack (dry run — nothing is published)
         working-directory: plugin
         run: npm pack --dry-run
+
+  install-ref-semantics:
+    # The README now pins `github:owner/repo#<published tag>`. Prove the three
+    # pnpm shorthand forms against the live repository on Linux with the
+    # stock CA bundle: no GIT_SSL_NO_VERIFY and no alternative TLS backend.
+    # This is the package-manager layer only; it does not launch DSH or a model.
+    name: "github: ref resolution (linux)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: noref, ref: '', expect: branch }
+          - { label: tag, ref: '#v1.3.0', expect: tag }
+          - { label: sha, ref: '#72b9328033985afd28f6f8b9924925e8ff1c3672', expect: sha }
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.2
+
+      - name: Install the pinned pnpm
+        run: npm install -g pnpm@11.22.0
+
+      - name: Refuse a TLS-verification bypass
+        run: |
+          set -euo pipefail
+          if [ -n "${GIT_SSL_NO_VERIFY:-}" ]; then
+            echo "GIT_SSL_NO_VERIFY must not be set for this gate" >&2
+            exit 1
+          fi
+          if [ "$(git config --get http.sslVerify || true)" = "false" ]; then
+            echo "http.sslVerify=false must not be used for this gate" >&2
+            exit 1
+          fi
+          echo "certificate verification: default CA bundle, sslVerify not disabled"
+
+      - name: Resolve and assert the installed commit
+        env:
+          PROBE_ROOT: ${{ runner.temp }}/ref-${{ matrix.label }}
+          SPEC_REF: ${{ matrix.ref }}
+          EXPECT: ${{ matrix.expect }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$PROBE_ROOT"
+          cd "$PROBE_ROOT"
+          SPEC="github:HarryHeYu/dsh-sessionflow${SPEC_REF}"
+          echo "install spec: $SPEC"
+          node - "$SPEC" <<'NODE'
+          const fs = require('node:fs');
+          const spec = process.argv[2];
+          fs.writeFileSync('package.json', JSON.stringify({
+            name: 'dsh-install-ref-probe',
+            version: '1.0.0',
+            private: true,
+            dependencies: { 'dsh-sessionflow': spec }
+          }, null, 2) + '\n');
+          NODE
+          pnpm install --ignore-scripts --config.auto-install-peers=false --store-dir "$PROBE_ROOT/store"
+
+          RESOLVED=$(node -e '
+          const fs = require("node:fs");
+          const lock = fs.readFileSync("pnpm-lock.yaml", "utf8");
+          const m = /tar\.gz\/([0-9a-f]{40})/.exec(lock);
+          if (!m) { console.error("resolved commit not found in pnpm-lock.yaml"); process.exit(1); }
+          process.stdout.write(m[1]);
+          ')
+          case "$EXPECT" in
+            branch)
+              EXPECTED=$(git ls-remote https://github.com/HarryHeYu/dsh-sessionflow.git refs/heads/main | awk '{print $1}')
+              ;;
+            tag)
+              EXPECTED=$(git ls-remote https://github.com/HarryHeYu/dsh-sessionflow.git 'refs/tags/v1.3.0^{}' | awk '{print $1}')
+              ;;
+            sha)
+              EXPECTED=72b9328033985afd28f6f8b9924925e8ff1c3672
+              ;;
+            *)
+              echo "unknown EXPECT=$EXPECT" >&2
+              exit 1
+              ;;
+          esac
+          echo "resolved=$RESOLVED"
+          echo "expected=$EXPECTED"
+          test "$RESOLVED" = "$EXPECTED"
