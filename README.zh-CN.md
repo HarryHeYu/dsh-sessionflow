@@ -18,7 +18,7 @@ Codex、Claude Code 等受支持 Agent 中做过的工作。
 | **当前版本** | [v1.3.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.3.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 / 0.2.1-rc.5 / 0.2.2-alpha.2（工具调用已跑通）· Node ≥ 22.19 · bridge schema 1 |
 | **已知限制** | 由 Agent 发起的 native resume **尚未**验证 —— 见 [验证状态](#验证状态) |
 
-> **未发布候选版：** Plugin 1.4.0 在提交 `65b7363` 上准备（CI 6/6），**尚无 Tag、也无 Release**。它与 Core 1.6.0 候选版的 `repo` 参数配套；在已发布 Core `v1.5.0` 上，该参数会返回清晰的 `INCOMPATIBLE`。验证候选代码请使用该提交或构建出的 tgz，不要假设存在 `v1.4.0` Tag。
+> **未发布候选版：** Plugin 1.4.0 在 `release/1.4.0-prep-r2` 分支上准备，**尚无 Tag、也无 Release**。它与 Core 1.6.0 候选版的 `repo` 参数配套；在已发布 Core `v1.5.0` 上，该参数会返回清晰的 `INCOMPATIBLE`。面向用户的安装命令仍固定 `#v1.3.0`；验证候选代码请使用这个分支或构建出的 tgz，不要假设存在 `v1.4.0` Tag。
 
 不是"又一个 session 管理器"，而是把 sessionFlow 的接续层以七个 tool 的形式提供给 DSH。
 
