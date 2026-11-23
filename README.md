@@ -13,13 +13,13 @@ supported agents using [sessionFlow](https://github.com/HarryHeYu/sessionFlow).
 |---|---|
 | **What it is** | A thin DSH plugin that exposes the sessionFlow continuity layer as seven `sessionflow_*` tools. |
 | **Why use it** | Work started in Codex, Claude Code, Grok or ZCode does not have to stop at the agent boundary — pick it back up inside DSH with the goal, files, commands and open items intact. |
-| **Install** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0` — [details](#install). Needs a working model provider **and** the sessionFlow core. |
+| **Install** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.4.0` — [details](#install). Needs a working model provider **and** the sessionFlow core. |
 | **Try it** | Ask in plain language: *"Continue the work I was doing in Claude Code on this repo."* Full walkthrough: [5-minute Quick Start](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md). |
-| **Current release** | [v1.3.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.3.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 / 0.2.1-rc.5 / 0.2.2-alpha.2 (tool calls answered) · Node ≥ 22.19 · bridge schema 1 |
+| **Current release** | [v1.4.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.4.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 / 0.2.1-rc.5 / 0.2.2-alpha.2 (tool calls answered) · Node ≥ 22.19 · bridge schema 1 |
 | **Privacy** | Local only. No account, no telemetry, no network calls — [boundary](#what-stays-local) |
 | **Known limitation** | Native resume by an agent is **not verified** — see [verification status](#verification-status) |
 
-> **Unreleased candidate:** Plugin 1.4.0 is prepared on `release/1.4.0-prep-r2`. It has **no tag and no Release**. It pairs with the Core 1.6.0 candidate for the optional `repo` argument; with released Core `v1.5.0`, that argument returns a clear `INCOMPATIBLE`. User-facing install commands stay on `#v1.3.0`; verify this candidate from the branch or the built tgz, never from a `v1.4.0` tag.
+> **Release:** Plugin 1.4.0 pairs with Core `v1.6.0` for the optional `repo` argument; with Core `v1.5.0`, that argument returns a clear `INCOMPATIBLE`. The install commands below pin the published `v1.4.0` tag.
 
 Not "yet another session manager" — sessionFlow's continuity layer, exposed to
 DSH as seven tools.
@@ -117,14 +117,14 @@ an older one is refused by name rather than misbehaving silently.
 
 | plugin | core | bridge schema |
 |---|---|---|
-| 1.4.0 (candidate) | `v1.6.0` (candidate) or `v1.5.0` without `repo` | `1` |
-| **1.3.0** | `v1.5.0` | `1` |
+| **1.4.0** | `v1.6.0` or `v1.5.0` without `repo` | `1` |
+| 1.3.0 | `v1.5.0` | `1` |
 | 1.2.0 | `v1.3.1` | `1` |
 | 1.1.0 | `v1.3.0` | `1` |
 
-**The two repos are versioned independently** — plugin `1.4.0` is the prepared
-candidate for Core `1.6.0`; the released pairing remains plugin `1.3.0` with
-Core `v1.5.0`. The numbers are not meant to match.
+**The two repos are versioned independently** — plugin `1.4.0` pairs with Core
+`v1.6.0`; the previous pairing was plugin `1.3.0` with Core `v1.5.0`. The
+numbers are not meant to match.
 Core `v1.5.0` is required for the seventh tool (it adds the `evidence_verify`
 API op); the six older tools keep working on earlier cores. Bridge schema is
 unchanged at `1` — the new op is additive, not a protocol bump.
@@ -139,10 +139,9 @@ recorded real-model runs, but there is **no repeatable end-to-end suite** for it
 see [verification status](#verification-status) and the prompt-shape note at the
 top. Do not read "the tools work" as "the model will always reach for them".
 
-> **Core v1.5.0 is released and is what the pin below installs.** The current
-> pairing is plugin **v1.3.0** against core **v1.5.0**: the six older tools and
-> the bridge schema (`1`) are unchanged; the seventh tool needs v1.5.0's
-> `evidence_verify` op, so this pairing is required if you use it. If you run
+> **Core v1.6.0 is released and is what the pin below installs.** The current
+> pairing is plugin **v1.4.0** against core **v1.6.0**; the `repo` argument needs
+> this pairing. The seventh tool needs Core `v1.5.0`'s `evidence_verify` op. If you run
 > DSH `0.2.1-rc.5` (next) or `0.2.2-alpha.2` (alpha), 1.2.0 already admits
 > them. Historical note: Core **v1.3.1** (additive over v1.3.0) added
 > evidence references inside bundle text and the `voyager evidence`
@@ -160,7 +159,7 @@ is deliberately not on a package registry:
 | | Where it comes from | Install |
 |---|---|---|
 | **Core** — sessionFlow | a **GitHub tag**; not on PyPI | `pipx install "voyager[all] @ git+…@v1.5.0"` |
-| **Plugin** — this repo | **DSH's plugin mechanism**; not on npm | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0` |
+| **Plugin** — this repo | **DSH's plugin mechanism**; not on npm | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.4.0` |
 
 Install the core first: without it the seven tools still register, but every call
 fails with a message naming the missing binary.
@@ -182,30 +181,29 @@ Two things people get wrong here:
 The core first, pinned to the release this plugin version was tested against:
 
 ```sh
-pipx install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.5.0"
-voyager --version     # must print 1.5.0
+pipx install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.6.0"
+voyager --version     # must print 1.6.0
 voyager scan          # build the index from your real agent history
 voyager doctor        # confirm the core runs and reports bridge schema 1
 ```
 
-No `pipx`? `python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.5.0"`
+No `pipx`? `python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.6.0"`
 works too. `python -m pip` is deliberate: on Windows `pip` is often not on `PATH`
 while `python` is.
 
 Then the plugin, pinned to the released tag:
 
 ```sh
-dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0
+dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.4.0
 dsh --profile web
 ```
 
-The `#v1.3.0` suffix matters. DSH passes the specifier to pnpm unchanged, and
+The `#v1.4.0` suffix matters. DSH passes the specifier to pnpm unchanged, and
 pnpm resolves a bare `github:owner/repo` to the repository's **default branch
 HEAD** (`main`), not to the newest tag or Release. Verified with pnpm 11.22.0:
-bare `github:` installed commit `72b9328` (main), while `#v1.3.0` installed the
-released tag's commit `2ad05c8b` and `#<sha>` installed that exact commit. A
-reinstall from the lockfile reproduces the resolved commit; a fresh bare `add`
-floats to whatever `main` currently holds.
+a bare `github:` specifier follows `main`, `#<tag>` resolves to that tag's peeled
+commit, and `#<sha>` resolves to the exact commit. A reinstall from the lockfile
+reproduces the resolved commit; a fresh bare `add` floats to current `main`.
 
 To install unreleased `main` deliberately (developers only), say so explicitly:
 
@@ -467,7 +465,7 @@ Uninstall it and install from the sessionFlow repository instead.
 The plugin is not on npm. Use the GitHub specifier instead:
 
 ```sh
-dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0
+dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.4.0
 ```
 
 **`add` fails with `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`.**

@@ -24,7 +24,7 @@ const pkg = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8'));
 // The newest published tag/Release, not the version being prepared. On a
 // candidate tree package.json is ahead of this; the pre-tag patch flips
 // both install pins and this constant together with the version bump.
-const PUBLISHED_RELEASE = '1.3.0';
+const PUBLISHED_RELEASE = '1.4.0';
 
 /** Lines are CRLF in EN and LF in ZH; never let that leak into an assertion. */
 function lines(s: string): string[] {
@@ -110,10 +110,10 @@ test('install examples pin a version, not a moving branch', () => {
     for (const m of s.matchAll(/sessionFlow\.git@v(\d+\.\d+\.\d+)/g)) pins.add(m[1]);
   }
   assert.ok(pins.size > 0, 'at least one install example must pin a tag');
-  // Core v1.5.0 is the released stable tag this plugin version (1.3.0) was
-  // tested against; the seventh tool needs its `evidence_verify` op, so the
-  // install examples must pin it, not an older tag or a moving branch.
-  assert.deepEqual([...pins].sort(), ['1.5.0']);
+  // Core v1.6.0 is the released stable tag this plugin version (1.4.0) was
+  // tested against; `repo` needs it, so the install examples must pin it,
+  // not an older tag or a moving branch.
+  assert.deepEqual([...pins].sort(), ['1.6.0']);
 });
 
 test('the header names the published plugin release, not an untagged candidate', () => {

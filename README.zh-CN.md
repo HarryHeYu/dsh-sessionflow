@@ -13,12 +13,12 @@ Codex、Claude Code 等受支持 Agent 中做过的工作。
 |---|---|
 | **是什么** | 一个薄的 DSH 插件，把 sessionFlow 的接续层以七个 `sessionflow_*` tool 暴露出来。 |
 | **为什么用** | 在 Codex / Claude Code / Grok / ZCode 里开始的工作不必停在 Agent 边界——可以在 DSH 里接着做，目标、文件、命令和未完成事项都还在。 |
-| **安装** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0` —— [详见](#安装)。需要可用的模型 provider **以及** sessionFlow core。 |
+| **安装** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.4.0` —— [详见](#安装)。需要可用的模型 provider **以及** sessionFlow core。 |
 | **试用** | 直接用自然语言说：*"继续我之前在 Claude Code 里对这个仓库做的工作。"* 完整流程见 [5 分钟上手指南](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md)。 |
-| **当前版本** | [v1.3.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.3.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 / 0.2.1-rc.5 / 0.2.2-alpha.2（工具调用已跑通）· Node ≥ 22.19 · bridge schema 1 |
+| **当前版本** | [v1.4.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.4.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 / 0.2.1-rc.5 / 0.2.2-alpha.2（工具调用已跑通）· Node ≥ 22.19 · bridge schema 1 |
 | **已知限制** | 由 Agent 发起的 native resume **尚未**验证 —— 见 [验证状态](#验证状态) |
 
-> **未发布候选版：** Plugin 1.4.0 在 `release/1.4.0-prep-r2` 分支上准备，**尚无 Tag、也无 Release**。它与 Core 1.6.0 候选版的 `repo` 参数配套；在已发布 Core `v1.5.0` 上，该参数会返回清晰的 `INCOMPATIBLE`。面向用户的安装命令仍固定 `#v1.3.0`；验证候选代码请使用这个分支或构建出的 tgz，不要假设存在 `v1.4.0` Tag。
+> **已发布：** Plugin 1.4.0 与 Core `v1.6.0` 配套支持可选的 `repo` 参数；在 Core `v1.5.0` 上该参数会返回清晰的 `INCOMPATIBLE`。下面的安装命令固定到已发布的 `v1.4.0` Tag。
 
 不是"又一个 session 管理器"，而是把 sessionFlow 的接续层以七个 tool 的形式提供给 DSH。
 
@@ -76,7 +76,7 @@ sessionFlow core 才能回答任何问题。本插件不会引入第三个。
 | | 来自哪里 | 安装 |
 |---|---|---|
 | **核心** — sessionFlow | **GitHub tag**；不在 PyPI | `pipx install "voyager[all] @ git+…@v1.5.0"` |
-| **插件** — 本仓库 | **DSH 的插件机制**；不在 npm | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0` |
+| **插件** — 本仓库 | **DSH 的插件机制**；不在 npm | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.4.0` |
 
 先装核心：没有它，七个工具照样注册，但每次调用都会失败并指名缺的那个二进制。
 
@@ -91,21 +91,21 @@ sessionFlow core 才能回答任何问题。本插件不会引入第三个。
 
 ```sh
 # 1. 核心（pin 到本插件版本实测过的发布 tag）
-pipx install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.5.0"
-voyager --version     # 应当输出 1.5.0
+pipx install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.6.0"
+voyager --version     # 应当输出 1.6.0
 voyager scan
 voyager doctor        # 确认核心能跑，并报告 bridge schema 1
 
 # 2. 本插件，锁定到发布 tag
-dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0
+dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.4.0
 dsh --profile web
 ```
 
-`#v1.3.0` 后缀很重要：DSH 把 specifier 原样交给 pnpm，而 pnpm 把裸
+`#v1.4.0` 后缀很重要：DSH 把 specifier 原样交给 pnpm，而 pnpm 把裸
 `github:owner/repo` 解析到仓库的**默认分支 HEAD**（`main`），不是最新 tag 或
-Release。用 pnpm 11.22.0 实测：裸 `github:` 装到 `72b9328`（main），`#v1.3.0`
-装到发布 tag 的 commit `2ad05c8b`，`#<sha>` 装到指定 commit。从 lockfile 重装可
-复现解析出的 commit；重新裸 `add` 则会漂到 `main` 的当前状态。
+Release。用 pnpm 11.22.0 实测：裸 `github:` 跟随 `main`，`#<tag>` 解析到该 tag
+ peeled 后的 commit，`#<sha>` 解析到指定 commit。从 lockfile 重装可复现解析出的
+commit；重新裸 `add` 则会漂到 `main` 的当前状态。
 
 要故意安装未发布的 `main`（仅开发用），请显式说明：
 
@@ -113,7 +113,7 @@ Release。用 pnpm 11.22.0 实测：裸 `github:` 装到 `72b9328`（main），`
 dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#main
 ```
 
-没有 `pipx`？`python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.5.0"`
+没有 `pipx`？`python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.6.0"`
 也可以。用 `python -m pip` 是有意的：Windows 上 `pip` 常常不在 `PATH` 里，而 `python` 在。
 
 pnpm 默认**不允许** git 来源的包执行构建脚本，所以第一次 `add` 会停下并打印
@@ -218,16 +218,16 @@ tool 原样透传该 dict。
 
 ## 兼容性
 
-**两个仓库各自独立发版**——插件 `1.4.0` 是面向核心 `1.6.0` 准备的候选版；
-已发布的组合仍是插件 `1.3.0` 配核心 `v1.5.0`，版本号不需要相同。真正约束它们的是 **bridge schema**：插件在 `src/bridge.ts`
+**两个仓库各自独立发版**——插件 `1.4.0` 与核心 `v1.6.0` 配套；
+上一版组合是插件 `1.3.0` 配核心 `v1.5.0`，版本号不需要相同。真正约束它们的是 **bridge schema**：插件在 `src/bridge.ts`
 里声明 `REQUIRED_SCHEMA_VERSION`，核心在 `voyager integration-info --json` 里报告它。
 第七个 tool 需要核心 `v1.5.0` 的 `evidence_verify` op；原有六个 tool 在更早的
 核心上照常工作。bridge schema 仍是 `1`——新 op 是加性的，不是协议升级。
 
 | 插件 | 核心 | bridge schema |
 |---|---|---|
-| 1.4.0（候选） | `v1.6.0`（候选），或不用 `repo` 时的 `v1.5.0` | 1 |
-| **1.3.0** | `v1.5.0` | 1 |
+| **1.4.0** | `v1.6.0`，或不用 `repo` 时的 `v1.5.0` | 1 |
+| 1.3.0 | `v1.5.0` | 1 |
 | 1.2.0 | `v1.3.1` | 1 |
 | 1.1.0 | `v1.3.0` | 1 |
 
@@ -236,9 +236,9 @@ tool 原样透传该 dict。
 但**没有**可重复的端到端套件——见[验证状态](#验证状态)。
 
 
-> 核心 **v1.5.0 已发布**，也是下面安装命令实际安装的版本。当前组合是插件
-> **v1.3.0** 配核心 **v1.5.0**：原有六个 tool 与 bridge schema（`1`）不变；
-> 第七个 tool 需要 v1.5.0 的 `evidence_verify` op，用到它就必须升到这个组合。
+> 核心 **v1.6.0 已发布**，也是下面安装命令实际安装的版本。当前组合是插件
+> **v1.4.0** 配核心 **v1.6.0**；`repo` 参数需要这个组合。第七个 tool 需要
+> 核心 v1.5.0 的 `evidence_verify` op。
 > `0.2.1-rc.5`（`next`）与 `0.2.2-alpha.2`（`alpha`）两个渠道 1.2.0 已接纳。
 > 历史说明：核心 **v1.3.1**（相对 v1.3.0 为增量）在交接包文本里加入证据引用、
 > 新增 `voyager evidence` 子命令，并修掉了三个 DSH bridge 正确性缺陷——
@@ -325,7 +325,7 @@ sessionFlow 仓库装。
 插件不在 npm 上。改用 GitHub specifier：
 
 ```sh
-dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.3.0
+dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.4.0
 ```
 
 **`add` 报 `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`。**
