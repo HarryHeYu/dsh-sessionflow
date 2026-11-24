@@ -1,5 +1,7 @@
 # Live verification
 
+> **Historical run: six-tool surface.** The request headers and tool calls below were recorded before the seventh tool existed. They remain valid historical evidence for those six tools, but they are not evidence that the current seven-tool surface was visible to a real agent.
+
 What was actually run, against what, and what it proved. Nothing here is
 promoted: a row says what the evidence shows and no more.
 

@@ -232,8 +232,7 @@ tool 原样透传该 dict。
 | 1.1.0 | `v1.3.0` | 1 |
 
 七个 tool 的兼容性由**非模型**的契约测试保证（输入 → bridge 调用 → 结果格式化，
-对着真实核心和临时索引）。模型**自主选择**这些 tool 在真实模型回合里被观察到过，
-但**没有**可重复的端到端套件——见[验证状态](#验证状态)。
+对着真实核心和临时索引）。模型**自主选择**工具曾在历史 **six-tool surface** 的真实回合中被观察到；当前七工具 surface 只有非模型验证，没有真实 Agent 可见性证据，也**没有**可重复的端到端套件——见[验证状态](#验证状态)和 [canonical verification matrix](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/verification-matrix.md)。
 
 
 > 核心 **v1.6.0 已发布**，也是下面安装命令实际安装的版本。当前组合是插件
@@ -278,12 +277,12 @@ DSH 处于 Developer Preview，接口会变。按渠道如实标注达到的等�
 | DSH 真的 import 并 apply 了插件 | **INSTALL VERIFIED（Linux CI）** | 启动能走到凭证门且无 import 报错；**`--dump-config` 单独证明不了这一点** —— 它从不 import 插件 |
 | 干净机器上的 `github:` 安装 | **INSTALL VERIFIED（Linux CI）** | `dsh plugin add github:HarryHeYu/dsh-sessionflow`，配合 pnpm 打印的 `allowBuilds` key |
 | 干净机器上的 `file:` 安装 | **INSTALL VERIFIED（Linux CI）** | `dsh plugin add file:<checkout>` |
-| 真实 Agent 能看到 tool 注册 | **LIVE VERIFIED** | 真实 DSH 回合的 request header 含全部六个 schema |
-| 自然语言自主选择 tool | **LIVE VERIFIED** | 只问"我之前这个项目做到哪了？"（未提任何 tool 名），Agent **第一个动作**就是 `sessionflow_current_work` |
+| 真实 Agent 能看到 tool 注册 | **LIVE VERIFIED（历史，six-tool surface）** | 历史 request header 含六个 schema；没有 all-seven request-header 证据 |
+| 自然语言自主选择 tool | **LIVE VERIFIED（历史，six-tool surface）** | 历史 prior-work prompt 中第一个动作是 `sessionflow_current_work`；当前七工具可见性 NOT VERIFIED，R16 复验因 DSH 缺凭证 BLOCKED |
 | 真实 Agent 调用 tool | **LIVE VERIFIED** | DSH session log 中 4 条 `tool/call` 记录 |
 | sessionFlow bridge 真实执行 | **LIVE VERIFIED** | 返回真实索引数据（266 sessions / 150,089 events / 8 providers） |
 | 跨 Agent 上下文检索 | **LIVE VERIFIED** | 返回的 WorkThread 成员横跨 `claude` 与 `zcode`；搜索命中横跨 `zcode`/`claude`/`grok` |
-| 用续接上下文接着别的 Agent 干活 | **LIVE VERIFIED** | 六个合成场景、真实模型、真实索引 —— 见 [`docs/p8-live-verification.md`](docs/p8-live-verification.md) |
+| 用续接上下文接着别的 Agent 干活 | **LIVE VERIFIED（历史，synthetic/real-format fixtures）** | 六个合成场景、真实模型、种子/真实格式索引 —— 见 [`docs/p8-live-verification.md`](docs/p8-live-verification.md)；R16 WorkBuddy A→B/C 是独立的 LIVE-R16 结果 |
 | 交接记录故意与磁盘不符时的自主选择 | **LIVE VERIFIED** | 夹具里的会话声称做了工作，而 checkout 里并没有；Agent 核对了文件，拒绝照抄该说法 |
 | 同一仓库两条 active WorkThread | **LIVE VERIFIED** | Agent 列出两条、拒绝选更新的那条，并说明"最新"不是判决 |
 | 从**真实 Provider 会话文件**续接（discovery → 解析 → 索引 → Agent） | **LIVE VERIFIED** | 3 个真实 Codex rollout + 3 个真实 Claude Code 会话复制进隔离 HOME，由真实适配器扫描，再由真实 Agent 续接 —— 见 [`docs/p9-live-verification.md`](https://github.com/HarryHeYu/dsh-sessionflow/blob/main/docs/p9-live-verification.md) |

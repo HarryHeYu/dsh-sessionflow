@@ -3,6 +3,12 @@
 Notable changes to `dsh-sessionflow`, newest first.  The full write-up for each
 release is in `docs/release-<version>.md`.
 
+## [Unreleased]
+
+### Changed
+
+- Verification claims now distinguish the historical six-tool DSH live runs from the current seven-tool surface, and cross-agent continuation claims are bounded to synthetic/real-format fixtures and R16 WorkBuddy A→B/C. No Bridge/schema/tool behaviour changed.
+
 ## [1.4.0] — 2026-11-22
 
 ### Added
