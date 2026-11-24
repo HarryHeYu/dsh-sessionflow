@@ -80,7 +80,7 @@ knowing before you expect the second:
 | | What it is | Status |
 |---|---|---|
 | **Native resume** | Hand an agent back its *own* earlier session, so it continues with full native state (`claude --resume`, `codex resume`). | **Not verified.** The plugin can report the command and the core records it, but no scenario here has launched another agent's session — that spends your credentials and writes into your real environment. |
-| **Cross-agent continuation** | Compile *other* agents' work — goal, files, commands, open items, provenance — into a context package or bundle, and hand it to whatever agent you are in now. | **Verified.** See [verification status](#verification-status). |
+| **Cross-agent continuation** | Compile *other* agents' work — goal, files, commands, open items, provenance — into a context package or bundle, and hand it to whatever agent you are in now. | **Verified with boundaries.** Historical DSH real-model runs used synthetic and real-format provider session files; R16 verified WorkBuddy A→B/C through the real Core CLI. Native resume, current DSH seven-tool runtime calls and cross-vendor provider E2E are NOT VERIFIED. See the [canonical verification matrix](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/verification-matrix.md) and [verification status](#verification-status). |
 
 The second row is the point: it is what lets work cross an agent boundary at
 all, including when the next agent has no way to resume the previous one.
@@ -134,8 +134,9 @@ What binds them is the **bridge schema**: `REQUIRED_SCHEMA_VERSION` in
 
 What that compatibility rests on: the seven tools are verified by **non-model
 contract tests** (input → bridge call → result formatting) against a real core
-on a seeded index. Model-driven *selection* of those tools has been observed in
-recorded real-model runs, but there is **no repeatable end-to-end suite** for it —
+on a seeded index. Model-driven *selection* was observed in recorded real-model runs on the historical **six-tool** surface; the current seven-tool surface has
+non-model verification but no real-agent visibility evidence, and there is
+**no repeatable end-to-end suite** for it —
 see [verification status](#verification-status) and the prompt-shape note at the
 top. Do not read "the tools work" as "the model will always reach for them".
 
@@ -385,12 +386,12 @@ Stated at the level actually reached — nothing below is promoted.
 | Plugin module imported and applied by DSH | **INSTALL VERIFIED (Linux CI)** | the boot reaches the credential gate with no import error; `--dump-config` alone cannot prove this, it never imports the plugin |
 | `github:` install on a clean machine | **INSTALL VERIFIED (Linux CI)** | `dsh plugin add github:HarryHeYu/dsh-sessionflow`, with the `allowBuilds` key pnpm prints |
 | `file:` install on a clean machine | **INSTALL VERIFIED (Linux CI)** | `dsh plugin add file:<checkout>` |
-| Tool registration visible to a real agent | **LIVE VERIFIED** | all six schemas in the request header of a real DSH turn |
-| Natural-language autonomous tool selection | **LIVE VERIFIED** | asked "我之前这个项目做到哪了？" with no tool named; the agent's first action was `sessionflow_current_work` |
-| Real agent tool invocation | **LIVE VERIFIED** | 4 `tool/call` records in DSH's session log |
+| Tool registration visible to a real agent | **LIVE VERIFIED (historical, six-tool surface)** | Historical request header contained all six schemas; no all-seven request-header evidence exists |
+| Natural-language autonomous tool selection | **LIVE VERIFIED (historical, six-tool surface)** | In the historical prior-work prompt the agent's first action was `sessionflow_current_work`. Current seven-tool visibility is NOT VERIFIED; R16 re-verification was BLOCKED by missing DSH credentials |
+| Real agent tool invocation | **LIVE VERIFIED (historical, six-tool surface)** | 4 `tool/call` records in the historical DSH session log |
 | sessionFlow bridge execution | **LIVE VERIFIED** | results carried real index data (266 sessions / 150,089 events / 8 providers) |
 | Cross-agent context retrieval | **LIVE VERIFIED** | the returned WorkThread's members span `claude` and `zcode`; search hits span `zcode`/`claude`/`grok` |
-| Continuation context used to pick up another agent's work | **LIVE VERIFIED** | six synthetic scenarios, real model, real index — see [`docs/p8-live-verification.md`](https://github.com/HarryHeYu/dsh-sessionflow/blob/main/docs/p8-live-verification.md) |
+| Continuation context used to pick up another agent's work | **LIVE VERIFIED (historical, synthetic/real-format fixtures)** | Six synthetic scenarios, real model, seeded/real-format index — see [`docs/p8-live-verification.md`](https://github.com/HarryHeYu/dsh-sessionflow/blob/main/docs/p8-live-verification.md); R16 WorkBuddy A→B/C is a separate LIVE-R16 result |
 | Autonomous selection with a deliberately misleading handoff | **LIVE VERIFIED** | the fixture's sessions claim work the checkout does not contain; the agent checked the files and refused to repeat the claim |
 | Ambiguous repo: two active WorkThreads | **LIVE VERIFIED** | the agent listed both, refused to pick the newer one, and said why "newest" is not a verdict |
 | Continuation from **real provider session files** (discovery → parse → index → agent) | **LIVE VERIFIED** | 3 real Codex rollouts + 3 real Claude Code sessions copied into an isolated HOME, scanned by the real adapters, then continued by a real agent — see [`docs/p9-live-verification.md`](https://github.com/HarryHeYu/dsh-sessionflow/blob/main/docs/p9-live-verification.md) |
