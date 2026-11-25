@@ -9,12 +9,15 @@
 用 [sessionFlow](https://github.com/HarryHeYu/sessionFlow) 检索历史、恢复上下文，并继续你在
 Codex、Claude Code 等受支持 Agent 中做过的工作。
 
+**这是 sessionFlow 的 DSH 集成**，不是独立的 session 管理项目。Core 负责本地索引与接续引擎；
+本插件只把它们暴露成 DSH 里的工具。
+
 |  |  |
 |---|---|
 | **是什么** | 一个薄的 DSH 插件，把 sessionFlow 的接续层以七个 `sessionflow_*` tool 暴露出来。 |
 | **为什么用** | 在 Codex / Claude Code / Grok / ZCode 里开始的工作不必停在 Agent 边界——可以在 DSH 里接着做，目标、文件、命令和未完成事项都还在。 |
 | **安装** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.4.0` —— [详见](#安装)。需要可用的模型 provider **以及** sessionFlow core。 |
-| **试用** | 直接用自然语言说：*"继续我之前在 Claude Code 里对这个仓库做的工作。"* 完整流程见 [5 分钟上手指南](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md)。 |
+| **试用** | 直接用自然语言说：*"继续我之前在 Claude Code 里对这个仓库做的工作。"* 完整流程见 [5 分钟上手指南](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md)；可复现的[接续证明 demo](https://github.com/HarryHeYu/sessionFlow/blob/main/examples/continuity-proof/README.md) 也在 Core 仓库。 |
 | **当前版本** | [v1.4.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.4.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 / 0.2.1-rc.5 / 0.2.2-alpha.2（工具调用已跑通）· Node ≥ 22.19 · bridge schema 1 |
 | **已知限制** | 由 Agent 发起的 native resume **尚未**验证 —— 见 [验证状态](#验证状态) |
 
@@ -267,6 +270,8 @@ DSH 处于 Developer Preview，接口会变。按渠道如实标注达到的等�
 
 按**实际达到的等级**如实标注，不向上冒充。
 
+除明确标注为 `PASS` 或 `INSTALL VERIFIED` 的行以外，下面的 `LIVE VERIFIED` 均指 [`docs/live-verification.md`](docs/live-verification.md) 记录的有日期的历史 **six-tool** 真实 Agent 运行；它不是当前七工具 surface 的 live 复验。
+
 | 能力 | 状态 | 证据 |
 |---|---|---|
 | bridge 机制：解析、超时、坏 JSON、非零退出、schema 闸门 | **PASS（unit）** | `tests/bridge.test.ts`，stub 可执行文件 |
@@ -357,8 +362,8 @@ dsh plugin --profile web add file:$PWD
   是数据，不是语法。
 - 插件**没有任意 shell 执行能力**。它只能调用核心的只读接口，外加 `voyager merge`
   （唯一的写操作，用于持久化 WorkThread）。
-- 只读取 sessionFlow 已经建好的索引；不扫描、不复制、不上传 provider 会话文件，
-  也不发送任何网络请求。
+- 只读取 sessionFlow 已经建好的索引；插件自身不扫描、不复制、不上传 provider 会话文件，
+  也不发送任何网络请求。你在 DSH 里配置的模型 provider 是另一个网络边界，不由本插件控制。
 
 ## 开发
 

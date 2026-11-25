@@ -9,6 +9,8 @@ release is in `docs/release-<version>.md`.
 
 - Verification claims now distinguish the historical six-tool DSH live runs from the current seven-tool surface, and cross-agent continuation claims are bounded to synthetic/real-format fixtures and R16 WorkBuddy A→B/C. No Bridge/schema/tool behaviour changed.
 
+- Landing pages now identify this repository as the DSH integration for sessionFlow, link the public causal demo, and scope local/no-telemetry wording to the core and plugin rather than the configured model provider. Historical live-verification documents now carry a current-status banner.
+
 ## [1.4.0] — 2026-11-22
 
 ### Added

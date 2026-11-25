@@ -1,5 +1,8 @@
 # P8.2 — Real DSH Agent End-to-End Verification
 
+> Historical verification record — see current verification matrix for current status.
+
+
 A real DSH agent, with the plugin installed in an isolated profile and pointed at
 a **synthetic** index, was asked to pick up work from other agents.  This file
 records what it actually did, from DSH's own session logs — not from the final

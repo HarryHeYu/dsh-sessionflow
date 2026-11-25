@@ -1,5 +1,8 @@
 # P9 — Real-Provider Continuation and Tool-Contract Verification
 
+> Historical verification record — see current verification matrix for current status.
+
+
 P8 proved a real DSH agent could continue work from a **synthetic** index.  P9
 asks the harder question: does the chain still hold when the sessions came from
 the real provider CLIs, and are the six tools' contracts what they claim?

@@ -1,5 +1,8 @@
 # P12 — Codex → DSH and Codex + Claude → DSH, end to end
 
+> Historical verification record — see current verification matrix for current status.
+
+
 A short, real, reproducible demo of the thing this plugin exists for: an agent
 picks up work another agent left unfinished, including when the repository does
 **not** show that anything is unfinished.
