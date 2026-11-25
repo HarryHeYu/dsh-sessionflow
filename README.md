@@ -9,14 +9,18 @@
 Search, recover context, and continue work from Codex, Claude Code, and other
 supported agents using [sessionFlow](https://github.com/HarryHeYu/sessionFlow).
 
+This is the **DSH integration for sessionFlow**, not a separate session-management
+project. The Core owns the local index and continuity engine; this plugin exposes
+them as tools inside DSH.
+
 |  |  |
 |---|---|
 | **What it is** | A thin DSH plugin that exposes the sessionFlow continuity layer as seven `sessionflow_*` tools. |
 | **Why use it** | Work started in Codex, Claude Code, Grok or ZCode does not have to stop at the agent boundary — pick it back up inside DSH with the goal, files, commands and open items intact. |
 | **Install** | `dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#v1.4.0` — [details](#install). Needs a working model provider **and** the sessionFlow core. |
-| **Try it** | Ask in plain language: *"Continue the work I was doing in Claude Code on this repo."* Full walkthrough: [5-minute Quick Start](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md). |
+| **Try it** | Ask in plain language: *"Continue the work I was doing in Claude Code on this repo."* Full walkthrough: [5-minute Quick Start](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/QUICKSTART.md). Reproducible [continuity proof demo](https://github.com/HarryHeYu/sessionFlow/blob/main/examples/continuity-proof/README.md). |
 | **Current release** | [v1.4.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.4.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 / 0.2.1-rc.5 / 0.2.2-alpha.2 (tool calls answered) · Node ≥ 22.19 · bridge schema 1 |
-| **Privacy** | Local only. No account, no telemetry, no network calls — [boundary](#what-stays-local) |
+| **Privacy** | The core and plugin are local-only: no account, no telemetry, no plugin network calls. The DSH model provider you configure is a separate boundary — [details](#what-stays-local) |
 | **Known limitation** | Native resume by an agent is **not verified** — see [verification status](#verification-status) |
 
 > **Release:** Plugin 1.4.0 pairs with Core `v1.6.0` for the optional `repo` argument; with Core `v1.5.0`, that argument returns a clear `INCOMPATIBLE`. The install commands below pin the published `v1.4.0` tag.
@@ -376,6 +380,8 @@ of silently admitting it.
 
 Stated at the level actually reached — nothing below is promoted.
 
+Unless a row is explicitly marked `PASS` or `INSTALL VERIFIED`, `LIVE VERIFIED` below refers to the dated historical six-tool real-agent runs recorded in [`docs/live-verification.md`](docs/live-verification.md); it is not a current seven-tool live rerun.
+
 | Capability | Status | Evidence |
 |---|---|---|
 | Bridge mechanics: resolution, deadline, malformed JSON, non-zero exit, schema gate | **PASS (unit)** | `tests/bridge.test.ts`, stub executables |
@@ -498,12 +504,13 @@ If it is absent, the bundle was not discovered — see the two entries above.
 
 ## What stays local
 
-Everything. This is the part worth being precise about, because the whole value
-proposition is that your coding history does not leave your machine.
+The sessionFlow core and this plugin are local-only. The model provider you use
+inside DSH is a separate network boundary; this section does not claim that the
+whole workflow is offline.
 
-- **No account, no telemetry, no analytics.** The plugin makes no network calls
-  of any kind — not even a version check. (`grep -rE 'fetch\(|https?://' src/`
-  finds one string, in a help message.)
+- **No account, no telemetry, no analytics in sessionFlow or this plugin.** The
+  plugin makes no network calls of its own — not even a version check.
+  (`grep -rE 'fetch\(|https?://' src/` finds one string, in a help message.)
 - **It does not read your session files.** It reads the index sessionFlow already
   built. Scanning provider directories — `~/.codex`, `~/.claude`, and the rest —
   is the core's job, and it is what `voyager scan` does; the plugin never opens
