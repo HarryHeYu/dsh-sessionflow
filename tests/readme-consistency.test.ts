@@ -110,10 +110,10 @@ test('install examples pin a version, not a moving branch', () => {
     for (const m of s.matchAll(/sessionFlow\.git@v(\d+\.\d+\.\d+)/g)) pins.add(m[1]);
   }
   assert.ok(pins.size > 0, 'at least one install example must pin a tag');
-  // Core v1.6.0 is the released stable tag this plugin version (1.4.0) was
-  // tested against; `repo` needs it, so the install examples must pin it,
-  // not an older tag or a moving branch.
-  assert.deepEqual([...pins].sort(), ['1.6.0']);
+  // Core v1.6.1 is the current released stable tag. Plugin v1.4.0 remains
+  // compatible with v1.6.0, but publish-facing install examples must pin the
+  // current released tag, not an older tag or a moving branch.
+  assert.deepEqual([...pins].sort(), ['1.6.1']);
 });
 
 test('the header names the published plugin release, not an untagged candidate', () => {
