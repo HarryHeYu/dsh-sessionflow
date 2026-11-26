@@ -23,7 +23,7 @@ them as tools inside DSH.
 | **Privacy** | The core and plugin are local-only: no account, no telemetry, no plugin network calls. The DSH model provider you configure is a separate boundary — [details](#what-stays-local) |
 | **Known limitation** | Native resume by an agent is **not verified** — see [verification status](#verification-status) |
 
-> **Release:** Plugin 1.4.0 pairs with Core `v1.6.0` for the optional `repo` argument; with Core `v1.5.0`, that argument returns a clear `INCOMPATIBLE`. The install commands below pin the published `v1.4.0` tag.
+> **Release:** Plugin 1.4.0 is compatible with Core `v1.6.1` and `v1.6.0` for the optional `repo` argument; with Core `v1.5.0`, that argument returns a clear `INCOMPATIBLE`. The install commands below pin the published `v1.4.0` tag.
 
 Not "yet another session manager" — sessionFlow's continuity layer, exposed to
 DSH as seven tools.
@@ -121,13 +121,14 @@ an older one is refused by name rather than misbehaving silently.
 
 | plugin | core | bridge schema |
 |---|---|---|
-| **1.4.0** | `v1.6.0` or `v1.5.0` without `repo` | `1` |
+| **1.4.0** | `v1.6.1`, `v1.6.0`, or `v1.5.0` without `repo` | `1` |
 | 1.3.0 | `v1.5.0` | `1` |
 | 1.2.0 | `v1.3.1` | `1` |
 | 1.1.0 | `v1.3.0` | `1` |
 
 **The two repos are versioned independently** — plugin `1.4.0` pairs with Core
-`v1.6.0`; the previous pairing was plugin `1.3.0` with Core `v1.5.0`. The
+`v1.6.1` and remains compatible with `v1.6.0`; the previous pairing was plugin
+`1.3.0` with Core `v1.5.0`. The
 numbers are not meant to match.
 Core `v1.5.0` is required for the seventh tool (it adds the `evidence_verify`
 API op); the six older tools keep working on earlier cores. Bridge schema is
@@ -144,9 +145,9 @@ non-model verification but no real-agent visibility evidence, and there is
 see [verification status](#verification-status) and the prompt-shape note at the
 top. Do not read "the tools work" as "the model will always reach for them".
 
-> **Core v1.6.0 is released and is what the pin below installs.** The current
-> pairing is plugin **v1.4.0** against core **v1.6.0**; the `repo` argument needs
-> this pairing. The seventh tool needs Core `v1.5.0`'s `evidence_verify` op. If you run
+> **Core v1.6.1 is released and is what the pin below installs.** The current
+> pairing is plugin **v1.4.0** against core **v1.6.1**; the `repo` argument needs
+> Core `v1.6.0` or newer. Plugin v1.4.0 remains compatible with Core v1.6.0. The seventh tool needs Core `v1.5.0`'s `evidence_verify` op. If you run
 > DSH `0.2.1-rc.5` (next) or `0.2.2-alpha.2` (alpha), 1.2.0 already admits
 > them. Historical note: Core **v1.3.1** (additive over v1.3.0) added
 > evidence references inside bundle text and the `voyager evidence`
@@ -186,13 +187,13 @@ Two things people get wrong here:
 The core first, pinned to the release this plugin version was tested against:
 
 ```sh
-pipx install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.6.0"
-voyager --version     # must print 1.6.0
+pipx install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.6.1"
+voyager --version     # must print 1.6.1
 voyager scan          # build the index from your real agent history
 voyager doctor        # confirm the core runs and reports bridge schema 1
 ```
 
-No `pipx`? `python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.6.0"`
+No `pipx`? `python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.6.1"`
 works too. `python -m pip` is deliberate: on Windows `pip` is often not on `PATH`
 while `python` is.
 

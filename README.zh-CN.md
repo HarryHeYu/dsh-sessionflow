@@ -21,7 +21,7 @@ Codex、Claude Code 等受支持 Agent 中做过的工作。
 | **当前版本** | [v1.4.0](https://github.com/HarryHeYu/dsh-sessionflow/releases/tag/v1.4.0) · DSH 0.1.5-rc.3 / 0.2.0-rc.2 / 0.2.1-alpha.4 / 0.2.1-rc.5 / 0.2.2-alpha.2（工具调用已跑通）· Node ≥ 22.19 · bridge schema 1 |
 | **已知限制** | 由 Agent 发起的 native resume **尚未**验证 —— 见 [验证状态](#验证状态) |
 
-> **已发布：** Plugin 1.4.0 与 Core `v1.6.0` 配套支持可选的 `repo` 参数；在 Core `v1.5.0` 上该参数会返回清晰的 `INCOMPATIBLE`。下面的安装命令固定到已发布的 `v1.4.0` Tag。
+> **已发布：** Plugin 1.4.0 与 Core `v1.6.1` / `v1.6.0` 配套支持可选的 `repo` 参数；在 Core `v1.5.0` 上该参数会返回清晰的 `INCOMPATIBLE`。下面的安装命令固定到已发布的 `v1.4.0` Tag。
 
 不是"又一个 session 管理器"，而是把 sessionFlow 的接续层以七个 tool 的形式提供给 DSH。
 
@@ -94,8 +94,8 @@ sessionFlow core 才能回答任何问题。本插件不会引入第三个。
 
 ```sh
 # 1. 核心（pin 到本插件版本实测过的发布 tag）
-pipx install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.6.0"
-voyager --version     # 应当输出 1.6.0
+pipx install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.6.1"
+voyager --version     # 应当输出 1.6.1
 voyager scan
 voyager doctor        # 确认核心能跑，并报告 bridge schema 1
 
@@ -116,7 +116,7 @@ commit；重新裸 `add` 则会漂到 `main` 的当前状态。
 dsh plugin --profile web add github:HarryHeYu/dsh-sessionflow#main
 ```
 
-没有 `pipx`？`python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.6.0"`
+没有 `pipx`？`python -m pip install "voyager[all] @ git+https://github.com/HarryHeYu/sessionFlow.git@v1.6.1"`
 也可以。用 `python -m pip` 是有意的：Windows 上 `pip` 常常不在 `PATH` 里，而 `python` 在。
 
 pnpm 默认**不允许** git 来源的包执行构建脚本，所以第一次 `add` 会停下并打印
@@ -221,7 +221,7 @@ tool 原样透传该 dict。
 
 ## 兼容性
 
-**两个仓库各自独立发版**——插件 `1.4.0` 与核心 `v1.6.0` 配套；
+**两个仓库各自独立发版**——插件 `1.4.0` 与核心 `v1.6.1` 配套，并兼容 `v1.6.0`；
 上一版组合是插件 `1.3.0` 配核心 `v1.5.0`，版本号不需要相同。真正约束它们的是 **bridge schema**：插件在 `src/bridge.ts`
 里声明 `REQUIRED_SCHEMA_VERSION`，核心在 `voyager integration-info --json` 里报告它。
 第七个 tool 需要核心 `v1.5.0` 的 `evidence_verify` op；原有六个 tool 在更早的
@@ -229,7 +229,7 @@ tool 原样透传该 dict。
 
 | 插件 | 核心 | bridge schema |
 |---|---|---|
-| **1.4.0** | `v1.6.0`，或不用 `repo` 时的 `v1.5.0` | 1 |
+| **1.4.0** | `v1.6.1`、`v1.6.0`，或不用 `repo` 时的 `v1.5.0` | 1 |
 | 1.3.0 | `v1.5.0` | 1 |
 | 1.2.0 | `v1.3.1` | 1 |
 | 1.1.0 | `v1.3.0` | 1 |
@@ -238,9 +238,9 @@ tool 原样透传该 dict。
 对着真实核心和临时索引）。模型**自主选择**工具曾在历史 **six-tool surface** 的真实回合中被观察到；当前七工具 surface 只有非模型验证，没有真实 Agent 可见性证据，也**没有**可重复的端到端套件——见[验证状态](#验证状态)和 [canonical verification matrix](https://github.com/HarryHeYu/sessionFlow/blob/main/docs/verification-matrix.md)。
 
 
-> 核心 **v1.6.0 已发布**，也是下面安装命令实际安装的版本。当前组合是插件
-> **v1.4.0** 配核心 **v1.6.0**；`repo` 参数需要这个组合。第七个 tool 需要
-> 核心 v1.5.0 的 `evidence_verify` op。
+> 核心 **v1.6.1 已发布**，也是下面安装命令实际安装的版本。当前组合是插件
+> **v1.4.0** 配核心 **v1.6.1**；插件 v1.4.0 仍兼容核心 v1.6.0；`repo` 参数需要
+> 核心 v1.6.0 或更新版本。第七个 tool 需要核心 v1.5.0 的 `evidence_verify` op。
 > `0.2.1-rc.5`（`next`）与 `0.2.2-alpha.2`（`alpha`）两个渠道 1.2.0 已接纳。
 > 历史说明：核心 **v1.3.1**（相对 v1.3.0 为增量）在交接包文本里加入证据引用、
 > 新增 `voyager evidence` 子命令，并修掉了三个 DSH bridge 正确性缺陷——
